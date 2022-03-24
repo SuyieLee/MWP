@@ -25,11 +25,11 @@ def getArgs():
     parser.add_argument('--cuda-id', type=str, dest='cuda_id', default='1')
     parser.add_argument('--cuda_use', type=bool, dest='cuda_use', default=False)
     parser.add_argument('--checkpoint_dir_name', type=str, dest='checkpoint_dir_name', default="0000-0000", help='模型存储名字')
-    parser.add_argument('--batch_size', type=int, dest='batch_size', default=256)
+    parser.add_argument('--batch_size', type=int, dest='batch_size', default=64)
     parser.add_argument('--epoch_num', type=int, dest='epoch_num', default=1)
     parser.add_argument('--bidirectional', type=bool, dest='bidirectional', default=True)
-    parser.add_argument('--print_every', type=int, dest='print_every', default=5)
-    parser.add_argument('--valid_every', type=int, dest='valid_every',default=5)
+    parser.add_argument('--print_every', type=int, dest='print_every', default=10)
+    parser.add_argument('--valid_every', type=int, dest='valid_every',default=2)
     return parser.parse_args()
 
 
@@ -67,8 +67,8 @@ def step_one_train():
     weight = torch.ones(data_loader.classes_len)
     if args.cuda_use:
         weight = weight.cuda()
-    pad = data_loader.decode_classes_dict['PAD_token']
-    loss = NLLLoss(weight, pad)
+    # pad = data_loader.decode_classes_dict['PAD_token']
+    # loss = NLLLoss(weight, pad)
     trainer = Trainer(model,
                       # loss=loss,
                       weight=weight,
@@ -84,10 +84,10 @@ def step_one_train():
                       checkpoint_dir_name=args.checkpoint_dir_name
                       )
     print("------------开始训练-------------")
-    train_loss = trainer.train(model, epoch_num=args.epoch_num, resume=args.resume, valid_every=args.valid_every)
+    trainer.train(model, epoch_num=args.epoch_num, resume=args.resume, valid_every=args.valid_every)
     print("------------开始测试-------------")
-    test_loss = trainer.evaluate(model, data_loader.test_data)
-    print("Test Loss: " + str(test_loss))
+    test_ans_acc = trainer.evaluate(model, data_loader.test_data)
+    print("Test Acc: %.5f  Acc: %d / %d" % (100*test_ans_acc/len(data_loader.test_data), test_ans_acc, len(data_loader.test_data)))
 
 
 def setup_seed(seed):

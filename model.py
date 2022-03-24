@@ -145,19 +145,14 @@ class Trainer(object):
 
     def train(self, model, epoch_num=100, resume=False, valid_every=10):
         train_list = self.data_loader.train_data
-        # test_list = self.data_loader.test_data
         valid_list = self.data_loader.valid_data
-        # start_epoch = 1
 
-        final_loss = 0
         for epoch in range(epoch_num):
             start_step = 0
             total_num = 0
             total_loss = 0
-            match = 0
-            total = 0
+            total_acc_num = 0
             model.train()
-
             print("Epoch " + str(epoch+1) + " start training!")
             for batch in self.data_loader.yield_batch(train_list, self.batch_size):
                 input = batch['batch_encode_pad_idx']
@@ -192,7 +187,9 @@ class Trainer(object):
                     output = output.cuda()
                     target = target.cuda()
 
-                # batch_acc_num = self.get_ans_acc(output, function_ans, batch_size, num_list)
+                batch_acc_num = self.get_ans_acc(output, function_ans, batch_size, num_list)
+                total_acc_num += batch_acc_num
+
                 loss = self.criterion(output, target)
                 total_loss += loss
                 loss.backward()
@@ -200,30 +197,30 @@ class Trainer(object):
                 torch.nn.utils.clip_grad_norm_(model.parameters(), 1)  # CLIP=1
                 self.optimizer.step()
 
-                # non_padding = target.ne(self.TRG_PAD_IDX)
-                # correct = output.view(-1).eq(target).masked_select(non_padding).sum().item()  # data[0]
-                # match += correct
-                # total += non_padding.sum().item()
+                # train_ans_acc = self.evaluate(model, train_list)
 
                 start_step += 1
                 if start_step % self.print_every == 0:
-                    print("Step " + str(start_step) + " Batch Loss: " + str(total_loss/total_num))
+                    print("Step %d Batch Loss: %.5f  |  Epoch %d Batch Train Acc: %.2f  Acc: %d / %d" % (start_step, total_loss/total_num, epoch+1, batch_acc_num/batch_size*100, batch_acc_num, batch_size))
 
             if (epoch+1) % valid_every == 0 and epoch > 0:
-                valid_loss = self.evaluate(model, valid_list)
-                print("Epoch " + str(epoch + 1) + " Valid Batch Loss: " + str(valid_loss/len(valid_list)))
-            final_loss = total_loss
-            print("Epoch " + str(epoch+1) + " Batch Loss: " + str(final_loss/len(train_list)))
-        return final_loss/len(train_list)
+                valid_ans_acc = self.evaluate(model, valid_list)
+                print("Epoch %d Batch Valid Acc: %.5f  Acc: %d / %d" % (epoch+1, 100*valid_ans_acc/len(valid_list), valid_ans_acc, len(valid_list)))
+
+            print("Epoch %d Batch Train Acc: %.5f  Acc: %d / %d" % (epoch + 1, total_acc_num / len(train_list)*100, total_acc_num, len(train_list)))
 
     def evaluate(self, model, data):
         model.eval()
         epoch_loss = 0
+        total_acc_num = 0
         for batch in self.data_loader.yield_batch(data, self.batch_size):
             input = batch['batch_encode_pad_idx']
             input_len = batch['batch_encode_len']
             target = batch['batch_decode_pad_idx']
             target_len = batch['batch_decode_len']
+            function_ans = batch['batch_ans']
+            num_list = batch['batch_num_list']
+            batch_size = len(input)
 
             input = Variable(torch.LongTensor(input))
             target = Variable(torch.LongTensor(target))
@@ -243,9 +240,18 @@ class Trainer(object):
             if self.cuda_use:
                 output = output.cuda()
                 target = target.cuda()
+            total_acc_num += self.get_ans_acc(output, function_ans, batch_size, num_list)
+
             loss = self.criterion(output, target)
             epoch_loss += loss
-        return epoch_loss/len(data)
+
+            # symbol_list = torch.cat([i.topk(1)[1] for i in output], 0)
+            # non_padding = target.ne(self.TRG_PAD_IDX)
+            # correct = symbol_list.eq(target).masked_select(non_padding).sum().item()  # data[0]
+            # match += correct
+            # total += non_padding.sum().item()
+
+        return total_acc_num
 
     def get_ans_acc(self, output, function_ans, batch_size, num_list):
         acc = 0
@@ -258,7 +264,7 @@ class Trainer(object):
                 equ = inverse_temp_to_num(templates, num_list[i])
                 # print(equ)
                 predict_ans = post_solver(equ)
-                if predict_ans == function_ans:
+                if abs(float(predict_ans) - float(function_ans[i])) < 1e-5:
                     acc += 1
             except:
                 acc += 0
