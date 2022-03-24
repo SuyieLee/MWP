@@ -16,8 +16,9 @@ def getArgs():
     parser = argparse.ArgumentParser()
     parser.add_argument('--resume', action='store_true', dest='resume', default=False, help='恢复')
     parser.add_argument('--teacher_forcing_ratio', type=float, dest='teacher_forcing_ratio', default=0.83)
+    parser.add_argument('--teacher_forcing', type=bool, dest='teacher_forcing', default=True)
     parser.add_argument('--data_name', type=str, dest='data_name', default='train_23k')
-    parser.add_argument('--encoder_hidden_size', type=int, dest='encoder_hidden_size', default=512)
+    parser.add_argument('--encoder_hidden_size', type=int, dest='encoder_hidden_size', default=1024)
     parser.add_argument('--decoder_hidden_size', type=int, dest='decoder_hidden_size', default=1024)
     parser.add_argument('--input_dropout', type=float, dest='input_dropout', default=0.4)
     parser.add_argument('--dropout', type=float, dest='dropout', default=0.5)
@@ -29,7 +30,7 @@ def getArgs():
     parser.add_argument('--epoch_num', type=int, dest='epoch_num', default=1)
     parser.add_argument('--bidirectional', type=bool, dest='bidirectional', default=True)
     parser.add_argument('--print_every', type=int, dest='print_every', default=10)
-    parser.add_argument('--valid_every', type=int, dest='valid_every',default=2)
+    parser.add_argument('--valid_every', type=int, dest='valid_every', default=2)
     return parser.parse_args()
 
 
@@ -87,7 +88,7 @@ def step_one_train():
     trainer.train(model, epoch_num=args.epoch_num, resume=args.resume, valid_every=args.valid_every)
     print("------------开始测试-------------")
     test_ans_acc = trainer.evaluate(model, data_loader.test_data)
-    print("Test Acc: %.5f  Acc: %d / %d" % (100*test_ans_acc/len(data_loader.test_data), test_ans_acc, len(data_loader.test_data)))
+    print("Test Acc: %.2f  Acc: %d / %d" % (100*test_ans_acc/len(data_loader.test_data), test_ans_acc, len(data_loader.test_data)))
 
 
 def setup_seed(seed):

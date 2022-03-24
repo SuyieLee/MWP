@@ -144,8 +144,16 @@ class Trainer(object):
             self.criterion = loss
 
     def train(self, model, epoch_num=100, resume=False, valid_every=10):
+        """
+        :param model: seq2seq模型
+        :param epoch_num: 训练轮次
+        :param resume: 是否使用checkpoint
+        :param valid_every: 没多少轮预测一次验证集
+        :return:
+        """
         train_list = self.data_loader.train_data
         valid_list = self.data_loader.valid_data
+        best_result = 0
 
         for epoch in range(epoch_num):
             start_step = 0
@@ -201,15 +209,21 @@ class Trainer(object):
 
                 start_step += 1
                 if start_step % self.print_every == 0:
-                    print("Step %d Batch Loss: %.5f  |  Epoch %d Batch Train Acc: %.2f  Acc: %d / %d" % (start_step, total_loss/total_num, epoch+1, batch_acc_num/batch_size*100, batch_acc_num, batch_size))
+                    print("Step %d Batch Loss: %.5f | Epoch %d Batch Train Acc: %.2f  Acc: %d / %d" % (start_step, total_loss/total_num, epoch+1, batch_acc_num/batch_size*100, batch_acc_num, batch_size))
 
             if (epoch+1) % valid_every == 0 and epoch > 0:
                 valid_ans_acc = self.evaluate(model, valid_list)
-                print("Epoch %d Batch Valid Acc: %.5f  Acc: %d / %d" % (epoch+1, 100*valid_ans_acc/len(valid_list), valid_ans_acc, len(valid_list)))
+                best_result = valid_ans_acc if valid_ans_acc > best_result else best_result
+                print("Epoch %d Batch Valid Acc: %.2f  Acc: %d / %d" % (epoch+1, 100*valid_ans_acc/len(valid_list), valid_ans_acc, len(valid_list)))
 
-            print("Epoch %d Batch Train Acc: %.5f  Acc: %d / %d" % (epoch + 1, total_acc_num / len(train_list)*100, total_acc_num, len(train_list)))
+            print("Epoch %d Batch Train Acc: %.2f  Acc: %d / %d" % (epoch + 1, total_acc_num / len(train_list)*100, total_acc_num, len(train_list)))
 
     def evaluate(self, model, data):
+        """
+        :param model: seq2seq
+        :param data: 数据list
+        :return: 返回正确的样例数
+        """
         model.eval()
         epoch_loss = 0
         total_acc_num = 0
@@ -254,6 +268,14 @@ class Trainer(object):
         return total_acc_num
 
     def get_ans_acc(self, output, function_ans, batch_size, num_list):
+        """
+        将预测的结果转换成表达式，并且计算其结果，返回正确的样例的数量
+        :param output: encoder的输出
+        :param function_ans: 标准答案
+        :param batch_size: batch大小
+        :param num_list: 数据预处理时候存储的原文本中的数字，用来替换tempa、tempb、c、d、e、f、g...
+        :return:
+        """
         acc = 0
         output = output.view(-1, batch_size, len(self.decode_classes_list))
         output = output.transpose(0, 1)
@@ -271,6 +293,11 @@ class Trainer(object):
         return acc
 
     def get_template(self, pred):
+        """
+        获取一条样例的预测的表达式，带有temp*
+        :param pred:
+        :return:
+        """
         templates = []
         for vec in pred:
             idx = vec.argmax(0).item()

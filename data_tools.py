@@ -7,6 +7,11 @@ def read_json_data(filename):
 
 
 def split_data(data):
+    """
+    划分训练集、验证集和测试集
+    :param data:
+    :return:
+    """
     t_path = "./data/id_ans_test"
     v_path = "./data/valid_ids.json"
     valid_id = read_json_data(v_path)
@@ -26,6 +31,9 @@ def split_data(data):
 
 
 def string_2_idx_sen(sen,  vocab_dict):
+    """
+    返回句子的onehot
+    """
     return [vocab_dict[word] for word in sen]
 
 
@@ -34,6 +42,11 @@ def pad_sen(sen_idx_list, max_len=115, pad_idx=0):
 
 
 def post_solver(post_equ):
+    """
+    计算后缀表达式的值
+    :param post_equ:
+    :return:
+    """
     stack = []
     op_list = ['+', '-', '/', '*', '^']
     for elem in post_equ:
@@ -61,6 +74,12 @@ def post_solver(post_equ):
 
 
 def inverse_temp_to_num(equ_list, num_list):
+    """
+    将表达式中的temp转换回数字
+    :param equ_list:
+    :param num_list:
+    :return:
+    """
     alphabet = "abcdefghijklmnopqrstuvwxyz"
     new_equ_list = []
     for elem in equ_list:

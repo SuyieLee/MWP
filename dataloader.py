@@ -164,6 +164,9 @@ class DataLoader():
         return batch_data_dict
 
     def yield_batch(self, data, batch_size):
+        """
+        生成一个batch的数据
+        """
         step = math.ceil(len(data)/batch_size)
         for i in range(step):
             batch_start = i*batch_size
