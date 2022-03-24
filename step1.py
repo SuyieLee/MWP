@@ -2,7 +2,8 @@ import argparse
 import os
 
 import torch
-from model import EncoderRNN, DecoderRNN, Seq2Seq, Trainer
+from model import EncoderRNN, DecoderRNN, Seq2Seq
+from Trainer import Trainer
 from dataloader import DataLoader
 from loss import NLLLoss
 # from argparse import ArgumentParser
@@ -18,7 +19,7 @@ def getArgs():
     parser.add_argument('--teacher_forcing_ratio', type=float, dest='teacher_forcing_ratio', default=0.83)
     parser.add_argument('--teacher_forcing', type=bool, dest='teacher_forcing', default=True)
     parser.add_argument('--data_name', type=str, dest='data_name', default='train_23k')
-    parser.add_argument('--encoder_hidden_size', type=int, dest='encoder_hidden_size', default=1024)
+    parser.add_argument('--encoder_hidden_size', type=int, dest='encoder_hidden_size', default=512)
     parser.add_argument('--decoder_hidden_size', type=int, dest='decoder_hidden_size', default=1024)
     parser.add_argument('--input_dropout', type=float, dest='input_dropout', default=0.4)
     parser.add_argument('--dropout', type=float, dest='dropout', default=0.5)
