@@ -2,7 +2,7 @@ import argparse
 import os
 
 import torch
-from model import EncoderRNN, DecoderRNN, Seq2Seq
+from model import EncoderRNN, DecoderRNN, Seq2Seq, Attention
 from Trainer import Trainer
 from dataloader import DataLoader
 from loss import NLLLoss
@@ -23,7 +23,7 @@ def getArgs():
     parser.add_argument('--decoder_hidden_size', type=int, dest='decoder_hidden_size', default=1024)
     parser.add_argument('--input_dropout', type=float, dest='input_dropout', default=0.4)
     parser.add_argument('--dropout', type=float, dest='dropout', default=0.5)
-    parser.add_argument('--layers', type=int, dest='layers', default=2)
+    parser.add_argument('--layers', type=int, dest='layers', default=1)
     parser.add_argument('--cuda-id', type=str, dest='cuda_id', default='1')
     parser.add_argument('--cuda_use', type=bool, dest='cuda_use', default=False)
     parser.add_argument('--checkpoint_dir_name', type=str, dest='checkpoint_dir_name', default="0000-0000", help='模型存储名字')
@@ -32,6 +32,7 @@ def getArgs():
     parser.add_argument('--bidirectional', type=bool, dest='bidirectional', default=True)
     parser.add_argument('--print_every', type=int, dest='print_every', default=10)
     parser.add_argument('--valid_every', type=int, dest='valid_every', default=2)
+    parser.add_argument('--mode', type=str, dest='mode', default='gru')
     return parser.parse_args()
 
 
@@ -42,27 +43,30 @@ def step_one_train():
     embed_model = nn.Embedding(data_loader.vocab_len, 128)
     # embed_model.weight初始化是正态分布N(0,1)
     # embed_model.weight.data.copy_(torch.from_numpy(data_loader.word2vec.embedding_vec))
+    attn = Attention(encode_hidden_size=args.encoder_hidden_size, decode_hidden_size=args.decoder_hidden_size)
     encode_model = EncoderRNN(vocab_size=data_loader.vocab_len,
                               embed_model=embed_model,
                               embed_size=128,
-                              hidden_size=args.encoder_hidden_size,
+                              encode_hidden_size=args.encoder_hidden_size,
+                              decode_hidden_size=args.decoder_hidden_size,
                               input_dropout=args.input_dropout,
                               dropout=args.dropout,
                               layers=int(args.layers),
-                              bidirectional=args.bidirectional)
+                              bidirectional=args.bidirectional,
+                              mode=args.mode)
 
     decoder_model = DecoderRNN(vocab_size=data_loader.vocab_len,
                                embed_model=embed_model,
-                               hidden_size=args.decoder_hidden_size,
+                               encode_hidden_size=args.encoder_hidden_size,
+                               decode_hidden_size=args.decoder_hidden_size,
                                embed_size=128,
                                classes_size=data_loader.classes_len,
                                input_dropout=args.input_dropout,
                                dropout=args.dropout,
                                layers=int(args.layers),
-                               sos_id=data_loader.vocab_dict['END_token'],
-                               eos_id=data_loader.vocab_dict['END_token'],
-                               bidirectional=args.bidirectional)
-    model = Seq2Seq(encode_model, decoder_model)
+                               bidirectional=args.bidirectional,
+                               attn=attn)
+    model = Seq2Seq(encode_model, decoder_model, mode=args.mode)
     if args.cuda_use:
         model = model.cuda()
 
