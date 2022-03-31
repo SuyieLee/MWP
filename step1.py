@@ -31,7 +31,8 @@ def getArgs():
     parser.add_argument('--bidirectional', type=bool, dest='bidirectional', default=True)
     parser.add_argument('--print_every', type=int, dest='print_every', default=10)
     parser.add_argument('--valid_every', type=int, dest='valid_every', default=2)
-    parser.add_argument('--train_word2vec', type=bool, dest='train_word2vec', default=True)
+    parser.add_argument('--train_word2vec', type=bool, dest='train_word2vec', default=False)
+    parser.add_argument('--all_vec', type=bool, dest='all_vec', default=False)
     return parser.parse_args()
 
 
@@ -86,8 +87,9 @@ def step_one_train():
                       checkpoint_dir_name=args.checkpoint_dir_name
                       )
     print("------------开始训练-------------")
-    trainer.train(model, epoch_num=args.epoch_num, resume=args.resume, valid_every=args.valid_every)
+    path = trainer.train(model, epoch_num=args.epoch_num, resume=args.resume, valid_every=args.valid_every)
     print("------------开始测试-------------")
+    model.load_state_dict(torch.load(path))
     test_ans_acc = trainer.evaluate(model, data_loader.test_data)
     print("Test Acc: %.2f  Acc: %d / %d" % (100*test_ans_acc/len(data_loader.test_data), test_ans_acc, len(data_loader.test_data)))
 

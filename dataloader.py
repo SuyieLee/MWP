@@ -18,8 +18,9 @@ class DataMath23k():
 
 
 class Word2Vec():
-    def __init__(self, data, flag=False):
+    def __init__(self, data, flag=False, use_all_vec=True):
         self.data = data
+        self.all_vec = use_all_vec
         if flag:
             self.embedding_vec = np.load("./data/new_emb.npy")
         else:
@@ -37,10 +38,21 @@ class Word2Vec():
             sentences.append(sentence)
             for elem in sentence:
                 new_data[elem] = new_data.get(elem, 0) + 1
-                # new_data.get(elem, 0)字典key不存在时返回默认值0
+        if self.all_vec:
+            for v in self.data.valid_data:
+                sentence = v['text'].strip().split(' ')
+                sentences.append(sentence)
+                for elem in sentence:
+                    new_data[elem] = new_data.get(elem, 0) + 1
+            for v in self.data.test_data:
+                sentence = v['text'].strip().split(' ')
+                sentences.append(sentence)
+                for elem in sentence:
+                    new_data[elem] = new_data.get(elem, 0) + 1
+                    # new_data.get(elem, 0)字典key不存在时返回默认值0
 
-        model = word2vec.Word2Vec(sentences, vector_size=128, min_count=1)  # 本地训练
-        # model = word2vec.Word2Vec(sentences, size=128, min_count=1)  # 服务器
+        # model = word2vec.Word2Vec(sentences, vector_size=128, min_count=1)  # 本地训练
+        model = word2vec.Word2Vec(sentences, size=128, min_count=1)  # 服务器
 
         token = ['PAD_token', 'SOS_token', 'END_token', 'UNK_token']
         emb_vectors = []
@@ -82,7 +94,7 @@ class DataLoader():
         self.test_data = self.data_23k.test_data
         self.valid_data = self.data_23k.valid_data
         print("---------math23k数据加载完成---------")
-        self.word2vec = Word2Vec(self.data_23k, args.train_word2vec)  # True则直接加载
+        self.word2vec = Word2Vec(self.data_23k, args.train_word2vec, args.all_vec)  # True则直接加载
         self.vocab_list = read_json_data("./data/new_token_list.json")
         vocab_dict = {}
         for idx, elem in enumerate(self.vocab_list):
@@ -117,7 +129,7 @@ class DataLoader():
             idx = elem['id']
             text = elem['text']
             batch_text.append(text)
-            text_idx = string_2_idx_sen(text.split(' '), self.vocab_dict)
+            text_idx = string_2_idx_sen(text.strip().split(' '), self.vocab_dict)
             text_idx = [self.decode_classes_dict['SOS_token']] + text_idx + [self.decode_classes_dict['END_token']]
             batch_encode_idx.append(text_idx)
             batch_encode_len.append(len(text_idx))

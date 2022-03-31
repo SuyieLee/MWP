@@ -4,6 +4,7 @@ from torch.autograd import Variable
 from data_tools import post_solver, inverse_temp_to_num
 import torch
 import torch.nn as nn
+import os
 
 
 class Trainer(object):
@@ -28,6 +29,8 @@ class Trainer(object):
     def train(self, model, epoch_num=100, resume=False, valid_every=10):
         train_list = self.data_loader.train_data
         valid_list = self.data_loader.valid_data
+        best_valid = 0
+        path = ""
 
         for epoch in range(epoch_num):
             start_step = 0
@@ -87,9 +90,15 @@ class Trainer(object):
 
             if (epoch+1) % valid_every == 0 and epoch > 0:
                 valid_ans_acc = self.evaluate(model, valid_list)
-                print("Epoch %d Batch Valid Acc: %.5f  Acc: %d / %d" % (epoch+1, 100*valid_ans_acc/len(valid_list), valid_ans_acc, len(valid_list)))
+                if valid_ans_acc > best_valid:
+                    best_valid = valid_ans_acc
+                    path = os.path.join('./model/', "epoch_"+str(epoch+1)+"_result"+str(100*best_valid/len(valid_list))+".pt")
+                    torch.save(model.state_dict(), path)
+                print("Epoch %d Batch Valid Acc: %.2f  Acc: %d / %d" % (epoch+1, 100*valid_ans_acc/len(valid_list), valid_ans_acc, len(valid_list)))
 
-            print("Epoch %d Batch Train Acc: %.5f  Acc: %d / %d" % (epoch + 1, total_acc_num / len(train_list)*100, total_acc_num, len(train_list)))
+            print("Epoch %d Batch Train Acc: %.2f  Acc: %d / %d" % (epoch + 1, total_acc_num / len(train_list)*100, total_acc_num, len(train_list)))
+        print("Epoch %d Best Valid Acc: %.2f" % (epoch_num, best_valid))
+        return path
 
     def evaluate(self, model, data):
         model.eval()
