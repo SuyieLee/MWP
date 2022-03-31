@@ -32,6 +32,7 @@ def getArgs():
     parser.add_argument('--bidirectional', type=bool, dest='bidirectional', default=True)
     parser.add_argument('--print_every', type=int, dest='print_every', default=10)
     parser.add_argument('--valid_every', type=int, dest='valid_every', default=2)
+    parser.add_argument('--train_word2vec', type=bool, dest='train_word2vec', default=True)
     return parser.parse_args()
 
 

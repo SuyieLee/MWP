@@ -86,11 +86,11 @@ def inverse_temp_to_num(equ_list, num_list):
         if 'temp' in elem:
             index = alphabet.index(elem[-1])
             try:
-                new_equ_list.append(num_list[index])
+                new_equ_list.append(str(num_list[index]))
             except:
                 return []
         elif 'PI' == elem:
             new_equ_list.append('3.14')
         else:
-            new_equ_list.append(elem)
+            new_equ_list.append(str(elem))
     return new_equ_list

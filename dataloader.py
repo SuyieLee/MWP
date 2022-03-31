@@ -9,8 +9,12 @@ from data_tools import *
 
 class DataMath23k():
     def __init__(self):
-        filename = "./data/math23k_0108.json"
-        self.data_dict = read_json_data(filename)
+        train_filename = "./data/new_train23k_processed.json"
+        test_filename = "./data/new_test23k_processed.json"
+        valid_filename = "./data/new_valid23k_processed.json"
+        self.train_data = read_json_data(train_filename)
+        self.test_data = read_json_data(test_filename)
+        self.valid_data = read_json_data(valid_filename)
 
 
 class Word2Vec():
@@ -28,7 +32,7 @@ class Word2Vec():
         """
         new_data = {}
         sentences = []
-        for k,v in self.data.data_dict.items():
+        for v in self.data.train_data:
             sentence = v['text'].strip().split(' ')
             sentences.append(sentence)
             for elem in sentence:
@@ -72,8 +76,11 @@ class DataLoader():
     def __init__(self, args=None):
         self.args = args
         self.data_23k = DataMath23k()
+        self.train_data = self.data_23k.train_data
+        self.test_data = self.data_23k.test_data
+        self.valid_data = self.data_23k.valid_data
         print("---------math23k数据加载完成---------")
-        self.word2vec = Word2Vec(self.data_23k, True) # True则直接加载
+        self.word2vec = Word2Vec(self.data_23k, args.train_word2vec)  # True则直接加载
         self.vocab_list = read_json_data("./data/new_token_list.json")
         vocab_dict = {}
         for idx, elem in enumerate(self.vocab_list):
@@ -91,9 +98,6 @@ class DataLoader():
             self.decode_classes_dict[elem]=idx
         self.classes_len = len(self.decode_classes_list)
 
-        self.train_data, self.valid_data, self.test_data = split_data(self.data_23k.data_dict)
-        self.templates = read_json_data("./data/norm_templates.json")
-
     def data_batch_process(self, data):
         batch_encode_idx = [] #
         batch_decode_idx = []
@@ -108,8 +112,8 @@ class DataLoader():
 
         # 获取每个batch的原数据
         for elem in data:
-            idx = elem[0]
-            text = elem[1]['text']
+            idx = elem['id']
+            text = elem['text']
             batch_text.append(text)
             text_idx = string_2_idx_sen(text.split(' '), self.vocab_dict)
             text_idx = [self.decode_classes_dict['SOS_token']] + text_idx + [self.decode_classes_dict['END_token']]
@@ -118,7 +122,7 @@ class DataLoader():
 
             target = ['SOS_token']
             # target = elem[1]['target_template']
-            target += self.templates[idx]
+            target += elem['target_norm_post_template'][2:]
             # target.append('END_token')
             batch_template.append(target)
             target_idx = string_2_idx_sen(target, self.decode_classes_dict)
@@ -126,8 +130,8 @@ class DataLoader():
             batch_decode_len.append(len(target_idx))
 
             batch_idxs.append(idx)
-            batch_num_list.append(elem[1]['num_list'])
-            batch_ans.append(elem[1]['ans'])
+            batch_num_list.append(elem['number_list'])
+            batch_ans.append(elem['answer'])
 
         # 求这个batch里面最长的，后面做paddinh对齐
         max_encoder_len = max(batch_encode_len)
