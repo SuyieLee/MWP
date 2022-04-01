@@ -27,6 +27,30 @@ def get_json_data(dataname):
         return json.load(f)
 
 
+def is_number(word):
+    if word[0] == '(' and word[-1] == ')':
+        for elem_char in word:
+            if (elem_char.isdigit()):
+                return True
+        return False
+    if '(' in word and ')' in word and '/' in word and not word[-1].isdigit():
+        for elem_char in word:
+            if (elem_char.isdigit()):
+                return True
+        return False
+    if word[-1] == '%' and len(word)>1:
+        return True
+    if word[0].isdigit():
+        return True
+    if word[-1].isdigit():
+        return True
+    try:
+        float(word)
+        return True
+    except:
+        return False
+
+
 def mask_number(split_text, equation):
     """"
     把数字替换成特定的字母，temp_a,temp_b...
@@ -38,25 +62,32 @@ def mask_number(split_text, equation):
     count = 0
     equation_list = []
     for word in split_text:
-        if word[0] in '0123456789':
+        if is_number(word):
             text.append('temp_'+alphas[count])
             if '%' in word:
                 text.append('%')
-            count += 1
+            elif len(set(alphas)&set(word.lower()))>0:
+                num, unit = split_num_unit(word)
+                text.append(unit)
+                word = num
             number_list.append(word)
+            count += 1
         elif word[0] == '(' and len(word) > 1:
             text.append('temp_'+alphas[count])
             count += 1
             number_list.append(word)
-        # elif '[' in word:
-        #     print(split_text)
-        #     print(equation)
-        #     print(word)
+        elif 'PI' in word:
+            text.append('temp_'+alphas[count])
+            number_list.append('3.14')
+            count += 1
         else:
             text.append(word)
+    if '3.14' in equation and '3.14' not in number_list:
+        number_list.append('3.14')
+    if '3.1416' in equation and '3.14' not in number_list:
+        number_list.append('3.1416')
 
     s_n = sorted([(w, i) for i, w in enumerate(number_list)], key=lambda x: len(str(x[0])), reverse=True)
-
     for num, idx in s_n:
         equation = equation.replace(num,'temp_'+alphas[idx], 15)
 
@@ -67,11 +98,14 @@ def mask_number(split_text, equation):
             equation_list.append(step)
             flag = 0
             step = ""
-
         if ch == 't' or flag > 0:
             step += ch
             flag += 1
         else:
+            if ch == '[':
+                ch = '('
+            elif ch == ']':
+                ch = ')'
             equation_list.append(ch)
             flag = 0
     if flag > 0:
@@ -87,13 +121,15 @@ def split_num_unit(numU):
     """
     numU = numU.lower()
     alphas = 'abcdefghijklmnopqrstuvwxyz'
+    unit_list = ['m2', 'kg', 'km']
     st = ""
     unit = ""
-    for i in numU:
-        if i in alphas:
-            unit += i
-        else:
-            st += i
+    for i in range(len(numU)):
+        if numU[i] not in alphas:
+            st += numU[i]
+        elif numU[i:] in unit_list:
+            unit += numU[i:]
+            break
     return st, unit
 
 
@@ -138,7 +174,10 @@ def texttoTloat(number):
             num_list.append(enum)
         else:
             enum, unit = split_num_unit(num)
-            num_list.append(float(enum))
+            try:
+                num_list.append(float(enum))
+            except:
+                continue
     return num_list
 
 
@@ -337,18 +376,18 @@ def write_data_json(data, filename):
         json.dump(data, f, indent=4)
 
 
-train_data_list = get_math23k_data("./data/math23k_train.json")
-test_data_list = get_math23k_data("./data/math23k_test.json")
-sni_dict = get_json_data("./data/sni_DNS.json")
+train_data_list = get_math23k_data("./math23k_train.json")
+test_data_list = get_math23k_data("./math23k_test.json")
+# sni_dict = get_json_data("./data/sni_DNS.json")
 
 # ----------------------------Train-------------------------------------
-for elem in train_data_list:
-    #origin = elem['original_text']
-    #print (sni_dict[elem['id']])
-    elem['sni_text'] = sni_dict[elem['id']]['text']
-    origin = elem['sni_text']
-    origin_text = ' '.join(jieba.cut(origin, cut_all=False))
-    elem['new_split'] = origin_text  # 这里不知道为什么要加一步这个？？？不是已经有segmented_text了吗
+# for elem in train_data_list:
+#     #origin = elem['original_text']
+#     #print (sni_dict[elem['id']])
+#     elem['sni_text'] = sni_dict[elem['id']]['text']
+#     origin = elem['sni_text']
+#     origin_text = ' '.join(jieba.cut(origin, cut_all=False))
+#     elem['new_split'] = origin_text  # 这里不知道为什么要加一步这个？？？不是已经有segmented_text了吗
 
 for elem in train_data_list:
     eid = elem['id']
@@ -365,8 +404,8 @@ for elem in train_data_list:
     temp_equ = change_pos(equ_list)
     suffix_equ_list = suffix_equ(temp_equ)
     # print(temp_equ)
-    if sni_dict[eid]['norm_template'] != '':
-        suffix_equ_list = ['x','=']+sni_dict[eid]['norm_template']
+    # if sni_dict[eid]['norm_template'] != '':
+    #     suffix_equ_list = ['x','=']+sni_dict[eid]['norm_template']
     elem['target_template'] = temp_equ
     elem['target_norm_post_template'] = suffix_equ_list
     elem['text'] = ' '.join(text_list)
@@ -378,17 +417,17 @@ train_shuffle = train_data_list[:]
 random.shuffle(train_shuffle)
 valid_set = train_shuffle[:1000]
 train_set = train_shuffle[1000:]
-write_data_json(train_set,"./data/new_train23k_processed.json")
-write_data_json(valid_set,"./data/new_valid23k_processed.json")
+write_data_json(train_set,"./new_train23k_processed.json")
+write_data_json(valid_set,"./new_valid23k_processed.json")
 
 # ----------------------------Test-------------------------------------
-for elem in test_data_list:
-    #origin = elem['original_text']
-    #print (sni_dict[elem['id']])
-    elem['sni_text'] = sni_dict[elem['id']]['text']
-    origin = elem['sni_text']
-    origin_text = ' '.join(jieba.cut(origin, cut_all=False))
-    elem['new_split'] = origin_text  # 为什么要用sni里面的text
+# for elem in test_data_list:
+#     #origin = elem['original_text']
+#     #print (sni_dict[elem['id']])
+#     elem['sni_text'] = sni_dict[elem['id']]['text']
+#     origin = elem['sni_text']
+#     origin_text = ' '.join(jieba.cut(origin, cut_all=False))
+#     elem['new_split'] = origin_text  # 为什么要用sni里面的text
 
 for elem in test_data_list:
     eid = elem['id']
@@ -405,8 +444,8 @@ for elem in test_data_list:
     temp_equ = change_pos(equ_list)
     suffix_equ_list = suffix_equ(temp_equ)
     # print(temp_equ)
-    if sni_dict[eid]['norm_template'] != '':
-        suffix_equ_list = ['x','=']+sni_dict[eid]['norm_template']
+    # if sni_dict[eid]['norm_template'] != '':
+    #     suffix_equ_list = ['x','=']+sni_dict[eid]['norm_template']
     elem['target_template'] = temp_equ
     elem['target_norm_post_template'] = suffix_equ_list
     elem['text'] = ' '.join(text_list)
@@ -414,4 +453,4 @@ for elem in test_data_list:
     elem['answer'] = float(ans_fix(elem['ans']))
     # print(ans_fix(elem['ans']))
 test_set = test_data_list[:]
-write_data_json(test_set,"./data/new_test23k_processed.json")
+write_data_json(test_set,"./new_test23k_processed.json")

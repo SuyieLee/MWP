@@ -33,6 +33,7 @@ def getArgs():
     parser.add_argument('--valid_every', type=int, dest='valid_every', default=2)
     parser.add_argument('--train_word2vec', type=bool, dest='train_word2vec', default=False)
     parser.add_argument('--all_vec', type=bool, dest='all_vec', default=False)
+    parser.add_argument('--start_epoch', type=int, dest='start_epoch', default=0)
     return parser.parse_args()
 
 
@@ -87,7 +88,13 @@ def step_one_train():
                       checkpoint_dir_name=args.checkpoint_dir_name
                       )
     print("------------开始训练-------------")
-    path = trainer.train(model, epoch_num=args.epoch_num, resume=args.resume, valid_every=args.valid_every)
+    start_epoch = args.start_epoch
+    if start_epoch > 0:
+        lists = os.listdir('./model/')
+        lists.sort(key=lambda x: os.path.getmtime((path + "\\" + x)))  # 获取最新产生的模型
+        file_last = os.path.join('./model/', lists[-1])
+        model.load_state_dict(torch.load(file_last))
+    path = trainer.train(model, epoch_num=args.epoch_num, start_epoch=start_epoch, resume=args.resume, valid_every=args.valid_every)
     print("------------开始测试-------------")
     model.load_state_dict(torch.load(path))
     test_ans_acc = trainer.evaluate(model, data_loader.test_data)

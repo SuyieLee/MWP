@@ -102,10 +102,12 @@ class DataLoader():
         self.vocab_dict = vocab_dict
         self.vocab_len = len(self.vocab_list)
 
-        self.decode_classes_list = ['PAD_token', 'SOS_token', 'END_token'] + [u'^', u'1', u'PI', u'temp_m', u'temp_l', u'temp_o',
+        self.decode_classes_list = ['PAD_token', 'SOS_token', 'END_token'] + [u'^', u'PI', u'temp_m', u'temp_l', u'temp_o',
                                                                  u'temp_n', u'temp_i', u'temp_h', u'temp_k', u'temp_j',
                                                                  u'temp_e', u'temp_d', u'temp_g', u'temp_f', u'temp_a',
                                                                  u'temp_c', u'temp_b', u'/', u'-', u'+', u'*', u'^']
+        for i in range(10):
+            self.decode_classes_list.append(str(i))
         # 解码器输出的词表
         self.decode_classes_dict = {}
         for idx, elem in enumerate(self.decode_classes_list):

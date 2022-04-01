@@ -26,13 +26,13 @@ class Trainer(object):
         else:
             self.criterion = loss
 
-    def train(self, model, epoch_num=100, resume=False, valid_every=10):
+    def train(self, model, epoch_num=100, resume=False, start_epoch=0, valid_every=10):
         train_list = self.data_loader.train_data
         valid_list = self.data_loader.valid_data
         best_valid = 0
         path = ""
 
-        for epoch in range(epoch_num):
+        for epoch in range(start_epoch+1, epoch_num):
             start_step = 0
             total_num = 0
             total_loss = 0
