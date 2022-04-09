@@ -18,7 +18,7 @@ class Trainer(object):
         self.decode_classes_list = decode_classes_list
         self.cuda_use = cuda_use
         self.print_every = print_every
-        self.optimizer = optim.Adam(model.parameters())
+        self.optimizer = optim.Adam(model.parameters(), lr=1e-3, betas=(0.9, 0.99))
         self.batch_size = batch_size
         self.TRG_PAD_IDX =TRG_PAD_IDX
         if loss is None:
@@ -32,7 +32,7 @@ class Trainer(object):
         best_valid = 0
         path = ""
 
-        for epoch in range(start_epoch+1, epoch_num):
+        for epoch in range(start_epoch, epoch_num):
             start_step = 0
             total_num = 0
             total_loss = 0

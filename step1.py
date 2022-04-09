@@ -20,7 +20,7 @@ def getArgs():
     parser.add_argument('--data_name', type=str, dest='data_name', default='train_23k')
     parser.add_argument('--encoder_hidden_size', type=int, dest='encoder_hidden_size', default=512)
     parser.add_argument('--decoder_hidden_size', type=int, dest='decoder_hidden_size', default=1024)
-    parser.add_argument('--input_dropout', type=float, dest='input_dropout', default=0.4)
+    parser.add_argument('--input_dropout', type=float, dest='input_dropout', default=0.5)
     parser.add_argument('--dropout', type=float, dest='dropout', default=0.5)
     parser.add_argument('--layers', type=int, dest='layers', default=2)
     parser.add_argument('--cuda-id', type=str, dest='cuda_id', default='1')
@@ -91,7 +91,7 @@ def step_one_train():
     start_epoch = args.start_epoch
     if start_epoch > 0:
         lists = os.listdir('./model/')
-        lists.sort(key=lambda x: os.path.getmtime((path + "\\" + x)))  # 获取最新产生的模型
+        lists.sort(key=lambda x: os.path.getmtime(('./model/' + x)))  # 获取最新产生的模型
         file_last = os.path.join('./model/', lists[-1])
         model.load_state_dict(torch.load(file_last))
     path = trainer.train(model, epoch_num=args.epoch_num, start_epoch=start_epoch, resume=args.resume, valid_every=args.valid_every)
