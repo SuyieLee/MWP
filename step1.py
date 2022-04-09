@@ -5,7 +5,6 @@ import torch
 from model import EncoderRNN, DecoderRNN, Seq2Seq
 from Trainer import Trainer
 from dataloader import DataLoader
-from loss import NLLLoss
 # from argparse import ArgumentParser
 import torch.nn as nn
 import random
