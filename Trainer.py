@@ -97,7 +97,7 @@ class Trainer(object):
                 print("Epoch %d Batch Valid Acc: %.2f  Acc: %d / %d" % (epoch+1, 100*valid_ans_acc/len(valid_list), valid_ans_acc, len(valid_list)))
 
             print("Epoch %d Batch Train Acc: %.2f  Acc: %d / %d" % (epoch + 1, total_acc_num / len(train_list)*100, total_acc_num, len(train_list)))
-        print("Epoch %d Best Valid Acc: %.2f" % (epoch_num, best_valid))
+        print("Epoch %d Best Valid Acc: %.2f" % (epoch_num, 100*best_valid/len(valid_list)))
         return path
 
     def evaluate(self, model, data):
