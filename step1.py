@@ -60,7 +60,7 @@ def step_one_train():
                                input_dropout=args.input_dropout,
                                dropout=args.dropout,
                                layers=int(args.layers),
-                               sos_id=data_loader.vocab_dict['END_token'],
+                               sos_id=data_loader.vocab_dict['SOS_token'],
                                eos_id=data_loader.vocab_dict['END_token'],
                                bidirectional=args.bidirectional)
     model = Seq2Seq(encode_model, decoder_model)
