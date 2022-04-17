@@ -2,7 +2,8 @@ import argparse
 import os
 
 import torch
-from model import EncoderRNN, DecoderRNN, Seq2Seq
+from treemodel import EncoderRNN, Prediction, GenerateNode, Merge
+from Seq2Tree import Seq2Tree
 from Trainer import Trainer
 from dataloader import DataLoader
 # from argparse import ArgumentParser
@@ -17,8 +18,8 @@ def getArgs():
     parser.add_argument('--teacher_forcing_ratio', type=float, dest='teacher_forcing_ratio', default=0.83)
     parser.add_argument('--teacher_forcing', type=bool, dest='teacher_forcing', default=True)
     parser.add_argument('--data_name', type=str, dest='data_name', default='train_23k')
-    parser.add_argument('--encoder_hidden_size', type=int, dest='encoder_hidden_size', default=512)
-    parser.add_argument('--decoder_hidden_size', type=int, dest='decoder_hidden_size', default=1024)
+    parser.add_argument('--hidden_size', type=int, dest='hidden_size', default=512)
+    # parser.add_argument('--decoder_hidden_size', type=int, dest='decoder_hidden_size', default=1024)
     parser.add_argument('--input_dropout', type=float, dest='input_dropout', default=0.5)
     parser.add_argument('--dropout', type=float, dest='dropout', default=0.5)
     parser.add_argument('--layers', type=int, dest='layers', default=2)
@@ -33,6 +34,9 @@ def getArgs():
     parser.add_argument('--train_word2vec', type=bool, dest='train_word2vec', default=False)
     parser.add_argument('--all_vec', type=bool, dest='all_vec', default=False)
     parser.add_argument('--start_epoch', type=int, dest='start_epoch', default=0)
+    parser.add_argument('--embedding_size', type=int, dest='embedding_size', default=128)
+    parser.add_argument('--weight_decay', type=float, dest='weight_decay', default=1e-5)
+    parser.add_argument('--learning_rate', type=float, dest='learning_rate', default=1e-3)
     return parser.parse_args()
 
 
@@ -40,30 +44,30 @@ def step_one_train():
     if args.cuda_use:
         print("----------Using cuda----------")
     data_loader = DataLoader(args)
-    embed_model = nn.Embedding(data_loader.vocab_len, 128)
+    embed_model = nn.Embedding(data_loader.vocab_len, args.embedding_size)
     # embed_model.weight初始化是正态分布N(0,1)
     # embed_model.weight.data.copy_(torch.from_numpy(data_loader.word2vec.embedding_vec))
-    encode_model = EncoderRNN(vocab_size=data_loader.vocab_len,
+    encoder = EncoderRNN(vocab_size=data_loader.vocab_len,
                               embed_model=embed_model,
-                              embed_size=128,
-                              hidden_size=args.encoder_hidden_size,
+                              embed_size=args.embedding_size,
+                              hidden_size=args.hidden_size,
                               input_dropout=args.input_dropout,
                               dropout=args.dropout,
                               layers=int(args.layers),
                               bidirectional=args.bidirectional)
 
-    decoder_model = DecoderRNN(vocab_size=data_loader.vocab_len,
-                               embed_model=embed_model,
-                               hidden_size=args.decoder_hidden_size,
-                               embed_size=128,
-                               classes_size=data_loader.classes_len,
-                               input_dropout=args.input_dropout,
-                               dropout=args.dropout,
-                               layers=int(args.layers),
-                               sos_id=data_loader.vocab_dict['SOS_token'],
-                               eos_id=data_loader.vocab_dict['END_token'],
-                               bidirectional=args.bidirectional)
-    model = Seq2Seq(encode_model, decoder_model)
+    predict = Prediction(args.hidden_size, op_nums=5, input_size=len(data_loader.generate_op))
+    generate = GenerateNode(args.hidden_size, op_nums=5, embedding_size=args.embedding_size)
+    merge = Merge(args.hidden_size, args.embedding_size)
+
+    if args.cuda_use:
+        encoder.cuda()
+        predict.cuda()
+        generate.cuda()
+        merge.cuda()
+
+    model = Seq2Tree(data_loader, encoder, predict, generate, merge, args.learning_rate, args.weight_decay, args.cuda_use)
+
     if args.cuda_use:
         model = model.cuda()
 
@@ -93,11 +97,11 @@ def step_one_train():
         lists.sort(key=lambda x: os.path.getmtime(('./model/' + x)))  # 获取最新产生的模型
         file_last = os.path.join('./model/', lists[-1])
         model.load_state_dict(torch.load(file_last))
-    path = trainer.train(model, epoch_num=args.epoch_num, start_epoch=start_epoch, resume=args.resume, valid_every=args.valid_every)
-    print("------------开始测试-------------")
-    model.load_state_dict(torch.load(path))
-    test_ans_acc = trainer.evaluate(model, data_loader.test_data)
-    print("Test Acc: %.2f  Acc: %d / %d" % (100*test_ans_acc/len(data_loader.test_data), test_ans_acc, len(data_loader.test_data)))
+    path = trainer.train(model, epoch_num=args.epoch_num, start_epoch=start_epoch, valid_every=args.valid_every)
+    # print("------------开始测试-------------")
+    # model.load_state_dict(torch.load(path))
+    # test_ans_acc = trainer.evaluate(model, data_loader.test_data)
+    # print("Test Acc: %.2f  Acc: %d / %d" % (100*test_ans_acc/len(data_loader.test_data), test_ans_acc, len(data_loader.test_data)))
 
 
 def setup_seed(seed):

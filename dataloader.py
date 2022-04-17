@@ -102,16 +102,22 @@ class DataLoader():
         self.vocab_dict = vocab_dict
         self.vocab_len = len(self.vocab_list)
 
-        self.decode_classes_list = ['PAD_token', 'SOS_token', 'END_token'] + [u'^', u'PI', u'temp_m', u'temp_l', u'temp_o',
+        self.decode_classes_list = [u'/', u'-', u'+', u'*', u'^','PAD_token', 'SOS_token', 'END_token', 'UNK_token'] + [u'PI', u'temp_m', u'temp_l', u'temp_o',
                                                                  u'temp_n', u'temp_i', u'temp_h', u'temp_k', u'temp_j',
                                                                  u'temp_e', u'temp_d', u'temp_g', u'temp_f', u'temp_a',
-                                                                 u'temp_c', u'temp_b', u'/', u'-', u'+', u'*', u'^']
-        for i in range(10):
-            self.decode_classes_list.append(str(i))
+                                                                 u'temp_c', u'temp_b', u'1', u'3.14']
+        self.generate_op = [1, 3.14]
+        self.generate_op_index = [24, 25]
+
+        # for i in range(10):
+        #     self.generate_op_index.append(len(self.decode_classes_list))
+        #     self.generate_op.append(str(i))
+        #     self.decode_classes_list.append(str(i))
+
         # 解码器输出的词表
         self.decode_classes_dict = {}
         for idx, elem in enumerate(self.decode_classes_list):
-            self.decode_classes_dict[elem]=idx
+            self.decode_classes_dict[elem] = idx
         self.classes_len = len(self.decode_classes_list)
 
     def data_batch_process(self, data):
@@ -123,22 +129,37 @@ class DataLoader():
         batch_idxs = [] # 第几条数据，id
         batch_text = [] # 文本内容
         batch_num_list = [] # 数字列表
+        batch_num_index_list = []
+        batch_num_count = []
         batch_ans = [] # 答案
         batch_template = []
+        nums_stack_batch = []
 
         # 获取每个batch的原数据
         for elem in data:
             idx = elem['id']
             text = elem['text']
+            num_index_list = []
+            for i in range(len(text.split(' '))):
+                if 'temp' in text.split(' ')[i]:
+                    num_index_list.append(i)
+            batch_num_index_list.append(num_index_list)
             batch_text.append(text)
             text_idx = string_2_idx_sen(text.strip().split(' '), self.vocab_dict)
             text_idx = [self.decode_classes_dict['SOS_token']] + text_idx + [self.decode_classes_dict['END_token']]
             batch_encode_idx.append(text_idx)
             batch_encode_len.append(len(text_idx))
 
-            target = ['SOS_token']
+            # target = ['SOS_token']
+            target = []
             # target = elem[1]['target_template']
             target += elem['target_norm_post_template'][2:]
+            target = target[::-1]  # 翻转成前缀表达式
+            nums_stack = []
+            for ch in target:
+                if ch not in self.decode_classes_list:
+                    nums_stack.append(self.decode_classes_dict(ch))
+            nums_stack_batch.append(nums_stack)
             # target.append('END_token')
             batch_template.append(target)
             target_idx = string_2_idx_sen(target, self.decode_classes_dict)
@@ -147,6 +168,7 @@ class DataLoader():
 
             batch_idxs.append(idx)
             batch_num_list.append(elem['number_list'])
+            batch_num_count.append(len(elem['number_list']))
             batch_ans.append(elem['answer'])
 
         # 求这个batch里面最长的，后面做paddinh对齐
@@ -176,7 +198,10 @@ class DataLoader():
         batch_data_dict['batch_template'] = batch_template
 
         batch_data_dict['batch_num_list'] = batch_num_list
+        batch_data_dict['batch_num_index_list'] = batch_num_index_list  # 数字的位置信息
+        batch_data_dict['batch_num_count'] = batch_num_count  # 数字列表的长度
         batch_data_dict['batch_ans'] = batch_ans
+        batch_data_dict['nums_stack_batch'] = nums_stack_batch
 
         # if len(data) != 1:
         #     batch_data_dict = self.sorted_data(batch_data_dict)

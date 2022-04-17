@@ -26,13 +26,18 @@ class Trainer(object):
         else:
             self.criterion = loss
 
-    def train(self, model, epoch_num=100, resume=False, start_epoch=0, valid_every=10):
+    def train(self, model, epoch_num=100, start_epoch=0, valid_every=10):
         train_list = self.data_loader.train_data
         valid_list = self.data_loader.valid_data
         best_valid = 0
         path = ""
 
         for epoch in range(start_epoch, epoch_num):
+            model.encoder_optimizer.step()
+            model.prediction_optimizer.step()
+            model.generation_optimizer.step()
+            model.merge_optimizer.step()
+
             start_step = 0
             total_num = 0
             total_loss = 0
@@ -46,6 +51,15 @@ class Trainer(object):
                 target_len = batch['batch_decode_len']
                 function_ans = batch['batch_ans']
                 num_list = batch['batch_num_list']
+                batch_num_count = batch['batch_num_count']
+                batch_num_index_list = batch['batch_num_index_list']
+                nums_stack_batch = batch['nums_stack_batch']
+
+                model.prediction.train()
+                model.encoder.train()
+                model.generation.train()
+                model.merge.train()
+
                 batch_size = len(input)
                 total_num += batch_size
 
@@ -58,46 +72,38 @@ class Trainer(object):
                 if self.cuda_use:
                     input = input.cuda()
                     target = target.cuda()
-                self.optimizer.zero_grad()
 
-                output = model(input, target, input_len, target_len)
+                model.encoder_optimizer.zero_grad()
+                model.prediction_optimizer.zero_grad()
+                model.generation_optimizer.zero_grad()
+                model.merge_optimizer.zero_grad()
 
-                # target = [trg len * batch size]
-                # output = [trg len, batch size, classes len]
-                classes_len = output.shape[-1]
-                output = output[1:].view(-1, classes_len)
-                target = target[1:].contiguous().view(-1)
+                loss = model(input, input_len, target, target_len, batch_num_count, self.data_loader.generate_op_index, batch_num_index_list, nums_stack_batch)
 
-                if self.cuda_use:
-                    output = output.cuda()
-                    target = target.cuda()
+                model.encoder_scheduler.step()
+                model.prediction_scheduler.step()
+                model.generation_scheduler.step()
+                model.merge_scheduler.step()
 
-                batch_acc_num = self.get_ans_acc(output, function_ans, batch_size, num_list)
-                total_acc_num += batch_acc_num
-
-                loss = self.criterion(output, target)
-                total_loss += loss
-                loss.backward()
-
-                torch.nn.utils.clip_grad_norm_(model.parameters(), 1)  # CLIP=1
-                self.optimizer.step()
-
-                # train_ans_acc = self.evaluate(model, train_list)
-
-                start_step += 1
-                if start_step % self.print_every == 0:
-                    print("Step %d Batch Loss: %.5f  |  Epoch %d Batch Train Acc: %.2f  Acc: %d / %d" % (start_step, total_loss/total_num, epoch+1, batch_acc_num/batch_size*100, batch_acc_num, batch_size))
-
-            if (epoch+1) % valid_every == 0 and epoch > 0:
-                valid_ans_acc = self.evaluate(model, valid_list)
-                if valid_ans_acc > best_valid:
-                    best_valid = valid_ans_acc
-                    path = os.path.join('./model/', "epoch_"+str(epoch+1)+"_result"+str(100*best_valid/len(valid_list))+".pt")
-                    torch.save(model.state_dict(), path)
-                print("Epoch %d Batch Valid Acc: %.2f  Acc: %d / %d" % (epoch+1, 100*valid_ans_acc/len(valid_list), valid_ans_acc, len(valid_list)))
-
-            print("Epoch %d Batch Train Acc: %.2f  Acc: %d / %d" % (epoch + 1, total_acc_num / len(train_list)*100, total_acc_num, len(train_list)))
-        print("Epoch %d Best Valid Acc: %.2f" % (epoch_num, 100*best_valid/len(valid_list)))
+            #     torch.nn.utils.clip_grad_norm_(model.parameters(), 1)  # CLIP=1
+            #     self.optimizer.step()
+            #
+            #     # train_ans_acc = self.evaluate(model, train_list)
+            #
+            #     start_step += 1
+            #     if start_step % self.print_every == 0:
+            #         print("Step %d Batch Loss: %.5f  |  Epoch %d Batch Train Acc: %.2f  Acc: %d / %d" % (start_step, total_loss/total_num, epoch+1, batch_acc_num/batch_size*100, batch_acc_num, batch_size))
+            #
+            # if (epoch+1) % valid_every == 0 and epoch > 0:
+            #     valid_ans_acc = self.evaluate(model, valid_list)
+            #     if valid_ans_acc > best_valid:
+            #         best_valid = valid_ans_acc
+            #         path = os.path.join('./model/', "epoch_"+str(epoch+1)+"_result"+str(100*best_valid/len(valid_list))+".pt")
+            #         torch.save(model.state_dict(), path)
+            #     print("Epoch %d Batch Valid Acc: %.2f  Acc: %d / %d" % (epoch+1, 100*valid_ans_acc/len(valid_list), valid_ans_acc, len(valid_list)))
+        #
+        #     print("Epoch %d Batch Train Acc: %.2f  Acc: %d / %d" % (epoch + 1, total_acc_num / len(train_list)*100, total_acc_num, len(train_list)))
+        # print("Epoch %d Best Valid Acc: %.2f" % (epoch_num, 100*best_valid/len(valid_list)))
         return path
 
     def evaluate(self, model, data):
@@ -111,6 +117,7 @@ class Trainer(object):
             target_len = batch['batch_decode_len']
             function_ans = batch['batch_ans']
             num_list = batch['batch_num_list']
+
             batch_size = len(input)
 
             input = Variable(torch.LongTensor(input))
