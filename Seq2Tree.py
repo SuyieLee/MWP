@@ -55,7 +55,6 @@ class Seq2Tree(nn.Module):
         num_size = max(copy_num_len)  # 数字列表最大长度
         all_nums_encoder_outputs = self.get_all_number_encoder_outputs(encoder_outputs, num_pos, batch_size, num_size,
                                                                        self.encoder.hidden_size)
-        num_start = self.data_loader.generate_op_index[0]
         embeddings_stacks = [[] for _ in range(batch_size)]
         left_childs = [None for _ in range(batch_size)]
         for t in range(max_target_length):
@@ -66,7 +65,7 @@ class Seq2Tree(nn.Module):
             outputs = torch.cat((op, num_score), 1)
             all_node_outputs.append(outputs)
             unk = self.data_loader.decode_classes_dict['UNK_token']
-
+            num_start = 5  # 5是指符号的个数，除符号外数字开始的下标
             target_t, generate_input = self.generate_tree_input(
                 target[t].tolist(), outputs, nums_stack_batch, num_start, unk)
             target[t] = target_t
@@ -115,9 +114,10 @@ class Seq2Tree(nn.Module):
         # loss = loss_0 + loss_1
         loss.backward()
         # clip the grad
-        # torch.nn.utils.clip_grad_norm_(encoder.parameters(), 5)
-        # torch.nn.utils.clip_grad_norm_(predict.parameters(), 5)
-        # torch.nn.utils.clip_grad_norm_(generate.parameters(), 5)
+        torch.nn.utils.clip_grad_norm_(self.encoder.parameters(), 1)
+        torch.nn.utils.clip_grad_norm_(self.prediction.parameters(), 1)
+        torch.nn.utils.clip_grad_norm_(self.generation.parameters(), 1)
+        torch.nn.utils.clip_grad_norm_(self.merge.parameters(), 1)
 
         # Update parameters with optimizers
         return loss.item()
@@ -157,7 +157,7 @@ class Seq2Tree(nn.Module):
         target_input = copy.deepcopy(target)
         for i in range(len(target)):
             if target[i] == unk:
-                num_stack = nums_stack_batch[i].pop()
+                num_stack = nums_stack_batch.pop()
                 max_score = -float("1e12")
                 for num in num_stack:
                     if decoder_output[i, num_start + num] > max_score:
@@ -193,7 +193,7 @@ class Seq2Tree(nn.Module):
         # target_flat: (batch * max_len, 1)
         target_flat = target.view(-1, 1)
         # losses_flat: (batch * max_len, 1)
-        losses_flat = -torch.gather(log_probs_flat, dim=1, index=target_flat)
+        losses_flat = -torch.gather(log_probs_flat, dim=0, index=target_flat)
 
         # losses: (batch, max_len)
         losses = losses_flat.view(*target.size())

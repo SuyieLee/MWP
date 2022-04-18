@@ -93,7 +93,7 @@ class Prediction(nn.Module):
                 c = self.dropout(c)
                 t = torch.tanh(self.concat_r(torch.cat((ld, c), 1)))
                 g = torch.sigmoid(self.concat_rg(torch.cat((ld, c), 1)))
-                current_embedding.append((g * t))
+                current_node_temp.append((g * t))
 
         current_node = torch.stack(current_node_temp)  # torch.stack拼接多个张量，直接放到一起，后面一步操作处理多个，最后再分开
         current_embeddings = self.dropout(current_node)
@@ -138,10 +138,8 @@ class TreeAttn(nn.Module):
         # encoder_outputs =[seq len, batch size, hidden size]
 
         batch_size = encoder_outputs.size(1)
-        energy = torch.cat((hidden, encoder_outputs),
-                           2)  # energy = [seq len, batch size, hidden size=512 + hidden size]
-        energy = energy.view(-1,
-                             self.input_size + self.hidden_size)  # energy = [seq len * batch size, hidden size + input size]
+        energy = torch.cat((hidden, encoder_outputs), 2)  # energy = [seq len, batch size, hidden size=512 + hidden size]
+        energy = energy.view(-1, self.input_size + self.hidden_size)  # energy = [seq len * batch size, hidden size + input size]
 
         score_feature = torch.tanh(self.attn(energy))  # score_feature = = [seq len * batch size, hidden size]
         score = self.score(score_feature)  # score = [seq len * batch size, 1]

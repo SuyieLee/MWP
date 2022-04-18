@@ -102,12 +102,14 @@ class DataLoader():
         self.vocab_dict = vocab_dict
         self.vocab_len = len(self.vocab_list)
 
-        self.decode_classes_list = [u'/', u'-', u'+', u'*', u'^','PAD_token', 'SOS_token', 'END_token', 'UNK_token'] + [u'PI', u'temp_m', u'temp_l', u'temp_o',
-                                                                 u'temp_n', u'temp_i', u'temp_h', u'temp_k', u'temp_j',
-                                                                 u'temp_e', u'temp_d', u'temp_g', u'temp_f', u'temp_a',
-                                                                 u'temp_c', u'temp_b', u'1', u'3.14']
-        self.generate_op = [1, 3.14]
-        self.generate_op_index = [24, 25]
+        self.generate_op = ['1', '3.14']
+        self.generate_op_index = [5, 6]
+
+        self.decode_classes_list = [u'/', u'-', u'+', u'*', u'^']
+        self.decode_classes_list += self.generate_op
+        self.decode_classes_list += ['temp_a', 'temp_b', 'temp_c', 'temp_d', 'temp_e', 'temp_f', 'temp_g', 'temp_h', 'temp_i', 'temp_j', 'temp_k', 'temp_l', 'temp_m', 'temp_n', 'temp_o']
+        self.decode_classes_list.append('UNK_token')
+        self.decode_classes_list.append('PAD_token')
 
         # for i in range(10):
         #     self.generate_op_index.append(len(self.decode_classes_list))
@@ -146,7 +148,6 @@ class DataLoader():
             batch_num_index_list.append(num_index_list)
             batch_text.append(text)
             text_idx = string_2_idx_sen(text.strip().split(' '), self.vocab_dict)
-            text_idx = [self.decode_classes_dict['SOS_token']] + text_idx + [self.decode_classes_dict['END_token']]
             batch_encode_idx.append(text_idx)
             batch_encode_len.append(len(text_idx))
 
@@ -158,7 +159,7 @@ class DataLoader():
             nums_stack = []
             for ch in target:
                 if ch not in self.decode_classes_list:
-                    nums_stack.append(self.decode_classes_dict(ch))
+                    nums_stack.append(self.decode_classes_dict['UNK_token'])
             nums_stack_batch.append(nums_stack)
             # target.append('END_token')
             batch_template.append(target)

@@ -79,6 +79,7 @@ class Trainer(object):
                 model.merge_optimizer.zero_grad()
 
                 loss = model(input, input_len, target, target_len, batch_num_count, self.data_loader.generate_op_index, batch_num_index_list, nums_stack_batch)
+                total_loss += loss
 
                 model.encoder_scheduler.step()
                 model.prediction_scheduler.step()
@@ -92,8 +93,8 @@ class Trainer(object):
             #
             #     start_step += 1
             #     if start_step % self.print_every == 0:
-            #         print("Step %d Batch Loss: %.5f  |  Epoch %d Batch Train Acc: %.2f  Acc: %d / %d" % (start_step, total_loss/total_num, epoch+1, batch_acc_num/batch_size*100, batch_acc_num, batch_size))
-            #
+                print("Step %d Batch Loss: %.5f  |  Epoch %d Batch Train Loss: %.2f" % (start_step, total_loss/total_num, epoch+1, loss))
+
             # if (epoch+1) % valid_every == 0 and epoch > 0:
             #     valid_ans_acc = self.evaluate(model, valid_list)
             #     if valid_ans_acc > best_valid:
