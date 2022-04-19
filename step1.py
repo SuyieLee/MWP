@@ -27,7 +27,7 @@ def getArgs():
     parser.add_argument('--cuda_use', type=bool, dest='cuda_use', default=False)
     parser.add_argument('--checkpoint_dir_name', type=str, dest='checkpoint_dir_name', default="0000-0000", help='模型存储名字')
     parser.add_argument('--batch_size', type=int, dest='batch_size', default=64)
-    parser.add_argument('--epoch_num', type=int, dest='epoch_num', default=10)
+    parser.add_argument('--epoch_num', type=int, dest='epoch_num', default=3)
     parser.add_argument('--bidirectional', type=bool, dest='bidirectional', default=True)
     parser.add_argument('--print_every', type=int, dest='print_every', default=10)
     parser.add_argument('--valid_every', type=int, dest='valid_every', default=2)

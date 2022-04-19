@@ -125,6 +125,7 @@ class Seq2Tree(nn.Module):
     def get_all_number_encoder_outputs(self, encoder_outputs, num_pos, batch_size, num_size, hidden_size):
         """
         将在encoder output中抽取出数字对应的编码，数字列表下标也做padding，并且记录哪些是padding的数字，然后做mask
+        长度是batch中，数字的个数的最大值。
         """
         # num_pos 数字下标列表
         # num_size 数字列表最大长度
@@ -157,7 +158,7 @@ class Seq2Tree(nn.Module):
         target_input = copy.deepcopy(target)
         for i in range(len(target)):
             if target[i] == unk:
-                num_stack = nums_stack_batch.pop()
+                num_stack = nums_stack_batch[i].pop()
                 max_score = -float("1e12")
                 for num in num_stack:
                     if decoder_output[i, num_start + num] > max_score:

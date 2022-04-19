@@ -122,8 +122,24 @@ class DataLoader():
             self.decode_classes_dict[elem] = idx
         self.classes_len = len(self.decode_classes_list)
 
+    def get_num_stack(self, target, num_list):
+        num_stack = []
+        for word in target:
+            temp_num = []
+            flag_not = True
+            if word not in self.decode_classes_list:
+                flag_not = False
+                for i, j in enumerate(num_list):
+                    if j == word:
+                        temp_num.append(i)
+            if not flag_not and len(temp_num) != 0:
+                num_stack.append(temp_num)    # 存的是多出来的数在公式数字列表中的下标
+            if not flag_not and len(temp_num) == 0:
+                num_stack.append([_ for _ in range(len(num_list))])   # pair[2]是数字列表
+        return num_stack
+
     def data_batch_process(self, data):
-        batch_encode_idx = [] #
+        batch_encode_idx = []
         batch_decode_idx = []
         batch_encode_len = []
         batch_decode_len = []
@@ -156,11 +172,9 @@ class DataLoader():
             # target = elem[1]['target_template']
             target += elem['target_norm_post_template'][2:]
             target = target[::-1]  # 翻转成前缀表达式
-            nums_stack = []
-            for ch in target:
-                if ch not in self.decode_classes_list:
-                    nums_stack.append(self.decode_classes_dict['UNK_token'])
-            nums_stack_batch.append(nums_stack)
+            num_stack = self.get_num_stack(target, elem['number_list'])
+            num_stack.reverse()
+            nums_stack_batch.append(num_stack)
             # target.append('END_token')
             batch_template.append(target)
             target_idx = string_2_idx_sen(target, self.decode_classes_dict)
