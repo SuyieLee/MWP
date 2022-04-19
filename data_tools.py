@@ -34,7 +34,13 @@ def string_2_idx_sen(sen,  vocab_dict):
     """
     返回句子的onehot
     """
-    return [vocab_dict[word] for word in sen]
+    word2id = []
+    for word in sen:
+        if word in vocab_dict:
+            word2id.append(vocab_dict[word])
+        elif word == 'PI':
+            word2id.append(vocab_dict['3.14'])
+    return word2id
 
 
 def pad_sen(sen_idx_list, max_len=115, pad_idx=0):

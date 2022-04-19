@@ -35,7 +35,9 @@ class Word2Vec():
                 new_data[elem] = new_data.get(elem, 0) + 1
                 # new_data.get(elem, 0)字典key不存在时返回默认值0
 
-        model = word2vec.Word2Vec(sentences, vector_size=128, min_count=1) # 训练
+        model = word2vec.Word2Vec(sentences, vector_size=128, min_count=1)  # 本地训练
+        # model = word2vec.Word2Vec(sentences, size=128, min_count=1)  # 服务器
+
         token = ['PAD_token', 'SOS_token', 'END_token', 'UNK_token']
         emb_vectors = []
 
@@ -73,7 +75,7 @@ class DataLoader():
         self.args = args
         self.data_23k = DataMath23k()
         print("---------math23k数据加载完成---------")
-        self.word2vec = Word2Vec(self.data_23k, True) # True则直接加载
+        self.word2vec = Word2Vec(self.data_23k, args.train_word2vec)  # True则直接加载
         self.vocab_list = read_json_data("./data/new_token_list.json")
         vocab_dict = {}
         for idx, elem in enumerate(self.vocab_list):
@@ -81,21 +83,46 @@ class DataLoader():
         self.vocab_dict = vocab_dict
         self.vocab_len = len(self.vocab_list)
 
-        self.decode_classes_list = ['PAD_token', 'SOS_token', 'END_token'] + [u'^', u'1', u'PI', u'temp_m', u'temp_l', u'temp_o',
-                                                                 u'temp_n', u'temp_i', u'temp_h', u'temp_k', u'temp_j',
-                                                                 u'temp_e', u'temp_d', u'temp_g', u'temp_f', u'temp_a',
-                                                                 u'temp_c', u'temp_b', u'/', u'-', u'+', u'*', u'^']
+        self.generate_op = ['1', '3.14']
+        self.generate_op_index = [5, 6]
+
+        self.decode_classes_list = [u'/', u'-', u'+', u'*', u'^']
+        self.decode_classes_list += self.generate_op
+        self.decode_classes_list += ['temp_a', 'temp_b', 'temp_c', 'temp_d', 'temp_e', 'temp_f', 'temp_g', 'temp_h', 'temp_i', 'temp_j', 'temp_k', 'temp_l', 'temp_m', 'temp_n', 'temp_o']
+        self.decode_classes_list.append('UNK_token')
+        # self.decode_classes_list.append('PAD_token')
+
+        # for i in range(10):
+        #     self.generate_op_index.append(len(self.decode_classes_list))
+        #     self.generate_op.append(str(i))
+        #     self.decode_classes_list.append(str(i))
+
         # 解码器输出的词表
         self.decode_classes_dict = {}
         for idx, elem in enumerate(self.decode_classes_list):
-            self.decode_classes_dict[elem]=idx
+            self.decode_classes_dict[elem] = idx
         self.classes_len = len(self.decode_classes_list)
-
         self.train_data, self.valid_data, self.test_data = split_data(self.data_23k.data_dict)
         self.templates = read_json_data("./data/norm_templates.json")
 
+    def get_num_stack(self, target, num_list):
+        num_stack = []
+        for word in target:
+            temp_num = []
+            flag_not = True
+            if word not in self.decode_classes_list:
+                flag_not = False
+                for i, j in enumerate(num_list):
+                    if j == word:
+                        temp_num.append(i)
+            if not flag_not and len(temp_num) != 0:
+                num_stack.append(temp_num)    # 存的是多出来的数在公式数字列表中的下标
+            if not flag_not and len(temp_num) == 0:
+                num_stack.append([_ for _ in range(len(num_list))])   # pair[2]是数字列表
+        return num_stack
+
     def data_batch_process(self, data):
-        batch_encode_idx = [] #
+        batch_encode_idx = []
         batch_decode_idx = []
         batch_encode_len = []
         batch_decode_len = []
@@ -103,22 +130,34 @@ class DataLoader():
         batch_idxs = [] # 第几条数据，id
         batch_text = [] # 文本内容
         batch_num_list = [] # 数字列表
+        batch_num_index_list = []
+        batch_num_count = []
         batch_ans = [] # 答案
         batch_template = []
+        nums_stack_batch = []
 
         # 获取每个batch的原数据
         for elem in data:
             idx = elem[0]
             text = elem[1]['text']
+            num_index_list = []
+            for i in range(len(text.split(' '))):
+                if 'temp' in text.split(' ')[i]:
+                    num_index_list.append(i)
+            batch_num_index_list.append(num_index_list)
             batch_text.append(text)
             text_idx = string_2_idx_sen(text.split(' '), self.vocab_dict)
-            text_idx = [self.decode_classes_dict['SOS_token']] + text_idx + [self.decode_classes_dict['END_token']]
             batch_encode_idx.append(text_idx)
             batch_encode_len.append(len(text_idx))
 
-            target = ['SOS_token']
+            # target = ['SOS_token']
+            target = []
             # target = elem[1]['target_template']
             target += self.templates[idx]
+            target = target[::-1]  # 翻转成前缀表达式
+            num_stack = self.get_num_stack(target, elem[1]['num_list'])
+            num_stack.reverse()
+            nums_stack_batch.append(num_stack)
             # target.append('END_token')
             batch_template.append(target)
             target_idx = string_2_idx_sen(target, self.decode_classes_dict)
@@ -127,6 +166,7 @@ class DataLoader():
 
             batch_idxs.append(idx)
             batch_num_list.append(elem[1]['num_list'])
+            batch_num_count.append(len(elem[1]['num_list']))
             batch_ans.append(elem[1]['ans'])
 
         # 求这个batch里面最长的，后面做paddinh对齐
@@ -136,11 +176,11 @@ class DataLoader():
 
         for i in range(len(data)):
             encode_sen_idx = batch_encode_idx[i]
-            encode_sen_pad_idx = pad_sen(encode_sen_idx, max_encoder_len, self.vocab_dict['PAD_token'])
+            encode_sen_pad_idx = pad_sen(encode_sen_idx, max_encoder_len, pad_idx=0)
             batch_encode_pad_idx.append(encode_sen_pad_idx)
 
             decode_sen_idx = batch_decode_idx[i]
-            decode_sen_pad_idx = pad_sen(decode_sen_idx, max_decoder_len, self.decode_classes_dict['PAD_token'])
+            decode_sen_pad_idx = pad_sen(decode_sen_idx, max_decoder_len, pad_idx=0)
             batch_decode_pad_idx.append(decode_sen_pad_idx)
 
         batch_data_dict = {}
@@ -156,7 +196,10 @@ class DataLoader():
         batch_data_dict['batch_template'] = batch_template
 
         batch_data_dict['batch_num_list'] = batch_num_list
+        batch_data_dict['batch_num_index_list'] = batch_num_index_list  # 数字的位置信息
+        batch_data_dict['batch_num_count'] = batch_num_count  # 数字列表的长度
         batch_data_dict['batch_ans'] = batch_ans
+        batch_data_dict['nums_stack_batch'] = nums_stack_batch
 
         # if len(data) != 1:
         #     batch_data_dict = self.sorted_data(batch_data_dict)
