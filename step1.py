@@ -24,7 +24,7 @@ def getArgs():
     parser.add_argument('--dropout', type=float, dest='dropout', default=0.5)
     parser.add_argument('--layers', type=int, dest='layers', default=2)
     parser.add_argument('--cuda-id', type=str, dest='cuda_id', default='1')
-    parser.add_argument('--cuda_use', type=bool, dest='cuda_use', default=False)
+    parser.add_argument('--cuda_use', type=bool, dest='cuda_use', default=True)
     parser.add_argument('--checkpoint_dir_name', type=str, dest='checkpoint_dir_name', default="0000-0000", help='模型存储名字')
     parser.add_argument('--batch_size', type=int, dest='batch_size', default=64)
     parser.add_argument('--epoch_num', type=int, dest='epoch_num', default=3)
@@ -86,7 +86,6 @@ def step_one_train():
                       decode_classes_dict=data_loader.decode_classes_dict,
                       decode_classes_list=data_loader.decode_classes_list,
                       cuda_use=args.cuda_use,
-                      TRG_PAD_IDX=data_loader.decode_classes_dict['PAD_token'],
                       print_every=args.print_every,
                       checkpoint_dir_name=args.checkpoint_dir_name
                       )

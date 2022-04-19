@@ -194,7 +194,7 @@ class Seq2Tree(nn.Module):
         # target_flat: (batch * max_len, 1)
         target_flat = target.view(-1, 1)
         # losses_flat: (batch * max_len, 1)
-        losses_flat = -torch.gather(log_probs_flat, dim=0, index=target_flat)
+        losses_flat = -torch.gather(log_probs_flat, dim=1, index=target_flat)  # 在log_probs_flat抽target_flat
 
         # losses: (batch, max_len)
         losses = losses_flat.view(*target.size())

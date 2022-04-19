@@ -51,8 +51,8 @@ class Word2Vec():
                     new_data[elem] = new_data.get(elem, 0) + 1
                     # new_data.get(elem, 0)字典key不存在时返回默认值0
 
-        model = word2vec.Word2Vec(sentences, vector_size=128, min_count=1)  # 本地训练
-        # model = word2vec.Word2Vec(sentences, size=128, min_count=1)  # 服务器
+        # model = word2vec.Word2Vec(sentences, vector_size=128, min_count=1)  # 本地训练
+        model = word2vec.Word2Vec(sentences, size=128, min_count=1)  # 服务器
 
         token = ['PAD_token', 'SOS_token', 'END_token', 'UNK_token']
         emb_vectors = []
@@ -109,7 +109,7 @@ class DataLoader():
         self.decode_classes_list += self.generate_op
         self.decode_classes_list += ['temp_a', 'temp_b', 'temp_c', 'temp_d', 'temp_e', 'temp_f', 'temp_g', 'temp_h', 'temp_i', 'temp_j', 'temp_k', 'temp_l', 'temp_m', 'temp_n', 'temp_o']
         self.decode_classes_list.append('UNK_token')
-        self.decode_classes_list.append('PAD_token')
+        # self.decode_classes_list.append('PAD_token')
 
         # for i in range(10):
         #     self.generate_op_index.append(len(self.decode_classes_list))
@@ -193,11 +193,11 @@ class DataLoader():
 
         for i in range(len(data)):
             encode_sen_idx = batch_encode_idx[i]
-            encode_sen_pad_idx = pad_sen(encode_sen_idx, max_encoder_len, self.vocab_dict['PAD_token'])
+            encode_sen_pad_idx = pad_sen(encode_sen_idx, max_encoder_len)
             batch_encode_pad_idx.append(encode_sen_pad_idx)
 
             decode_sen_idx = batch_decode_idx[i]
-            decode_sen_pad_idx = pad_sen(decode_sen_idx, max_decoder_len, self.decode_classes_dict['PAD_token'])
+            decode_sen_pad_idx = pad_sen(decode_sen_idx, max_decoder_len)
             batch_decode_pad_idx.append(decode_sen_pad_idx)
 
         batch_data_dict = {}

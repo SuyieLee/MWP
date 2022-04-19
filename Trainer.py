@@ -170,10 +170,11 @@ class Trainer(object):
         return acc
 
     def get_template(self, pred):
+        pad_id = 0
         templates = []
         for vec in pred:
             idx = vec.argmax(0).item()
-            if idx == self.decode_classes_dict['PAD_token'] or idx == self.decode_classes_dict['END_token']:
+            if idx == pad_id or idx == self.decode_classes_dict['END_token']:
                 break
             templates.append(self.decode_classes_list[idx])
         return templates
