@@ -241,3 +241,24 @@ class TreeEmbedding:  # the class save the tree
     def __init__(self, embedding, terminal=False):
         self.embedding = embedding
         self.terminal = terminal
+
+
+class TreeBeam:  # the class save the beam node
+    def __init__(self, score, node_stack, embedding_stack, left_childs, out):
+        self.score = score
+        self.embedding_stack = copy_list(embedding_stack)
+        self.node_stack = copy_list(node_stack)
+        self.left_childs = copy_list(left_childs)
+        self.out = copy.deepcopy(out)
+
+
+def copy_list(l):
+    r = []
+    if len(l) == 0:
+        return r
+    for i in l:
+        if type(i) is list:
+            r.append(copy_list(i))
+        else:
+            r.append(i)
+    return r

@@ -4,6 +4,9 @@ from torch.autograd import Variable
 from data_tools import post_solver, inverse_temp_to_num
 import torch
 import torch.nn as nn
+import os
+from data_tools import out_expression_list, compute_prefix_expression
+import copy
 
 
 class Trainer(object):
@@ -19,6 +22,7 @@ class Trainer(object):
         self.print_every = print_every
         self.optimizer = optim.Adam(model.parameters())
         self.batch_size = batch_size
+        self.MAX_OUTPUT_LENGTH = 45
         if loss is None:
             self.criterion = nn.NLLLoss(weight=weight, reduction='mean')
         else:
@@ -84,31 +88,29 @@ class Trainer(object):
                 model.generation_scheduler.step()
                 model.merge_scheduler.step()
 
-            #     torch.nn.utils.clip_grad_norm_(model.parameters(), 1)  # CLIP=1
-            #     self.optimizer.step()
-            #
-            #     # train_ans_acc = self.evaluate(model, train_list)
-            #
-            #     start_step += 1
-            #     if start_step % self.print_every == 0:
-                print("Step %d Batch Loss: %.5f  |  Epoch %d Batch Train Loss: %.2f" % (start_step, total_loss/total_num, epoch+1, loss))
+                start_step += 1
+                if start_step % self.print_every == 0:
+                    print("Epoch %d Batch Loss: %.5f  |  Step %d Batch Train Loss: %.2f" % (epoch+1, total_loss/total_num, start_step, loss))
 
-            # if (epoch+1) % valid_every == 0 and epoch > 0:
-            #     valid_ans_acc = self.evaluate(model, valid_list)
-            #     if valid_ans_acc > best_valid:
-            #         best_valid = valid_ans_acc
-            #         path = os.path.join('./model/', "epoch_"+str(epoch+1)+"_result"+str(100*best_valid/len(valid_list))+".pt")
-            #         torch.save(model.state_dict(), path)
-            #     print("Epoch %d Batch Valid Acc: %.2f  Acc: %d / %d" % (epoch+1, 100*valid_ans_acc/len(valid_list), valid_ans_acc, len(valid_list)))
-        #
-        #     print("Epoch %d Batch Train Acc: %.2f  Acc: %d / %d" % (epoch + 1, total_acc_num / len(train_list)*100, total_acc_num, len(train_list)))
-        # print("Epoch %d Best Valid Acc: %.2f" % (epoch_num, 100*best_valid/len(valid_list)))
+            if (epoch+1) % valid_every == 0 and epoch > 0:
+                valid_loss = self.evaluate(model, valid_list)
+                if valid_loss < best_valid:
+                    best_valid = valid_loss
+                    path = os.path.join('./model/', "epoch_"+str(epoch+1)+"_result"+str(best_valid)+".pt")
+                    torch.save(model.state_dict(), path)
+                print("Valid Loss: %.2f" % best_valid)
         return path
 
     def evaluate(self, model, data):
-        model.eval()
-        epoch_loss = 0
-        total_acc_num = 0
+        # Set to not-training mode to disable dropout
+        model.encoder.eval()
+        model.prediction.eval()
+        model.generation.eval()
+        model.merge.eval()
+        total_loss = 0
+        value_ac = 0
+        equation_ac = 0
+        eval_total = 0
         for batch in self.data_loader.yield_batch(data, self.batch_size):
             input = batch['batch_encode_pad_idx']
             input_len = batch['batch_encode_len']
@@ -116,8 +118,9 @@ class Trainer(object):
             target_len = batch['batch_decode_len']
             function_ans = batch['batch_ans']
             num_list = batch['batch_num_list']
-
-            batch_size = len(input)
+            batch_num_count = batch['batch_num_count']
+            batch_num_index_list = batch['batch_num_index_list']
+            nums_stack_batch = batch['nums_stack_batch']
 
             input = Variable(torch.LongTensor(input))
             target = Variable(torch.LongTensor(target))
@@ -129,26 +132,36 @@ class Trainer(object):
                 input = input.cuda()
                 target = target.cuda()
 
-            output = model(input, target, input_len, target_len)
+            test_res = model.test(input, input_len, self.data_loader.generate_op_index, batch_num_index_list, beam_size=5, max_length=self.MAX_OUTPUT_LENGTH)
+            val_ac, equ_ac, _, _ = self.compute_prefix_tree_result(test_res, target, num_list, nums_stack_batch)
+            if val_ac:
+                value_ac += 1
+            if equ_ac:
+                equation_ac += 1
+            eval_total += 1
+        print(equation_ac, value_ac, eval_total)
+        print("test_answer_acc", float(equation_ac) / eval_total, float(value_ac) / eval_total)
+        return total_loss
 
-            classes_len = output.shape[-1]
-            output = output[1:].view(-1, classes_len)
-            target = target[1:].contiguous().view(-1)
-            if self.cuda_use:
-                output = output.cuda()
-                target = target.cuda()
-            total_acc_num += self.get_ans_acc(output, function_ans, batch_size, num_list)
+    def compute_prefix_tree_result(self, test_res, test_tar, num_list, num_stack):
+        # print(test_res, test_tar)
 
-            loss = self.criterion(output, target)
-            epoch_loss += loss
-
-            # symbol_list = torch.cat([i.topk(1)[1] for i in output], 0)
-            # non_padding = target.ne(self.TRG_PAD_IDX)
-            # correct = symbol_list.eq(target).masked_select(non_padding).sum().item()  # data[0]
-            # match += correct
-            # total += non_padding.sum().item()
-
-        return total_acc_num
+        if len(num_stack) == 0 and test_res == test_tar:
+            return True, True, test_res, test_tar
+        test = out_expression_list(test_res, self.data_loader, num_list)
+        tar = out_expression_list(test_tar, self.data_loader, num_list, copy.deepcopy(num_stack))
+        # print(test, tar)
+        if test is None:
+            return False, False, test, tar
+        if test == tar:
+            return True, True, test, tar
+        try:
+            if abs(compute_prefix_expression(test) - compute_prefix_expression(tar)) < 1e-4:
+                return True, False, test, tar
+            else:
+                return False, False, test, tar
+        except:
+            return False, False, test, tar
 
     def get_ans_acc(self, output, function_ans, batch_size, num_list):
         acc = 0

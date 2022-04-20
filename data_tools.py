@@ -1,4 +1,27 @@
 import json
+import copy
+import re
+
+
+def out_expression_list(test, dataloader, num_list, num_stack=None):
+    max_index = len(dataloader.decode_classes_list)
+    res = []
+    for i in test:
+        # if i == 0:
+        #     return res
+        if i < max_index - 1:
+            idx = dataloader.decode_classes_list[i]
+            if idx[0] == "N":
+                if int(idx[1:]) >= len(num_list):
+                    return None
+                res.append(num_list[int(idx[1:])])
+            else:
+                res.append(idx)
+        else:
+            pos_list = num_stack.pop()
+            c = num_list[pos_list[0]]
+            res.append(c)
+    return res
 
 
 def read_json_data(filename):
@@ -100,3 +123,52 @@ def inverse_temp_to_num(equ_list, num_list):
         else:
             new_equ_list.append(elem)
     return new_equ_list
+
+
+def compute_prefix_expression(pre_fix):
+    st = list()
+    operators = ["+", "-", "^", "*", "/"]
+    pre_fix = copy.deepcopy(pre_fix)
+    pre_fix.reverse()
+    for p in pre_fix:
+        if p not in operators:
+            pos = re.search("\d+\(", p)
+            if pos:
+                st.append(eval(p[pos.start(): pos.end() - 1] + "+" + p[pos.end() - 1:]))
+            elif p[-1] == "%":
+                st.append(float(p[:-1]) / 100)
+            else:
+                st.append(eval(p))
+        elif p == "+" and len(st) > 1:
+            a = st.pop()
+            b = st.pop()
+            st.append(a + b)
+        elif p == "*" and len(st) > 1:
+            a = st.pop()
+            b = st.pop()
+            st.append(a * b)
+        elif p == "*" and len(st) > 1:
+            a = st.pop()
+            b = st.pop()
+            st.append(a * b)
+        elif p == "/" and len(st) > 1:
+            a = st.pop()
+            b = st.pop()
+            if b == 0:
+                return None
+            st.append(a / b)
+        elif p == "-" and len(st) > 1:
+            a = st.pop()
+            b = st.pop()
+            st.append(a - b)
+        elif p == "^" and len(st) > 1:
+            a = st.pop()
+            b = st.pop()
+            if float(eval(b)) != 2.0 or float(eval(b)) != 3.0:
+                return None
+            st.append(a ** b)
+        else:
+            return None
+    if len(st) == 1:
+        return st.pop()
+    return None

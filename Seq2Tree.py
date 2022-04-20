@@ -36,9 +36,13 @@ class Seq2Tree(nn.Module):
             d = i + len(generate_nums)
             num_mask.append([0] * d + [1] * (max_num_size - d))
         num_mask = torch.ByteTensor(num_mask)
-
-        padding_hidden = torch.FloatTensor([0.0 for _ in range(self.prediction.hidden_size)]).unsqueeze(0)
         batch_size = len(input_len)
+
+        copy_num_len = [len(_) for _ in num_pos]  # 数字列表的长度
+        num_size = max(copy_num_len)  # 数字列表最大长度
+
+        max_target_length = max(target_len)  # 表达式的最大长度
+        padding_hidden = torch.FloatTensor([0.0 for _ in range(self.prediction.hidden_size)]).unsqueeze(0)
 
         if self.cuda_use:
             input = input.cuda()
@@ -48,24 +52,21 @@ class Seq2Tree(nn.Module):
 
         encoder_outputs, problem_output = self.encoder(input, input_len)
         node_stacks = [[TreeNode(_)] for _ in problem_output.split(1, dim=0)]  # 生成根节点
-        max_target_length = max(target_len)  # 表达式的最大长度
-        all_node_outputs = []
 
-        copy_num_len = [len(_) for _ in num_pos]  # 数字列表的长度
-        num_size = max(copy_num_len)  # 数字列表最大长度
+        num_start = 5  # 5是指符号的个数，除符号外数字开始的下标
         all_nums_encoder_outputs = self.get_all_number_encoder_outputs(encoder_outputs, num_pos, batch_size, num_size,
                                                                        self.encoder.hidden_size)
+
+        all_node_outputs = []
         embeddings_stacks = [[] for _ in range(batch_size)]
         left_childs = [None for _ in range(batch_size)]
         for t in range(max_target_length):
             num_score, op, current_embeddings, current_context, current_nums_embeddings = self.prediction(
                 node_stacks, left_childs, encoder_outputs, all_nums_encoder_outputs, padding_hidden, seq_mask, num_mask)
-
             # all_leafs.append(p_leaf)
             outputs = torch.cat((op, num_score), 1)
             all_node_outputs.append(outputs)
             unk = self.data_loader.decode_classes_dict['UNK_token']
-            num_start = 5  # 5是指符号的个数，除符号外数字开始的下标
             target_t, generate_input = self.generate_tree_input(
                 target[t].tolist(), outputs, nums_stack_batch, num_start, unk)
             target[t] = target_t
@@ -121,6 +122,111 @@ class Seq2Tree(nn.Module):
 
         # Update parameters with optimizers
         return loss.item()
+
+    def test(self, input, input_len, generate_nums, num_pos, beam_size, max_length):
+        seq_mask = torch.ByteTensor(1, input_len).fill_(0)
+        # Turn padded arrays into (batch_size x max_len) tensors, transpose into (max_len x batch_size)
+        input_var = torch.LongTensor(input).unsqueeze(1)
+
+        num_mask = torch.ByteTensor(1, len(num_pos) + len(generate_nums)).fill_(0)
+
+        padding_hidden = torch.FloatTensor([0.0 for _ in range(self.prediction.hidden_size)]).unsqueeze(0)
+
+        batch_size = 1
+
+        if self.cuda_use:
+            input_var = input_var.cuda()
+            seq_mask = seq_mask.cuda()
+            padding_hidden = padding_hidden.cuda()
+            num_mask = num_mask.cuda()
+        # Run words through encoder
+
+        encoder_outputs, problem_output = self.encoder(input_var, [input_len])
+
+        # Prepare input and output variables
+        node_stacks = [[TreeNode(_)] for _ in problem_output.split(1, dim=0)]
+
+        num_size = len(num_pos)
+        all_nums_encoder_outputs = self.get_all_number_encoder_outputs(encoder_outputs, [num_pos], batch_size, num_size,
+                                                                  self.encoder.hidden_size)
+        num_start = 5
+        # B x P x N
+        embeddings_stacks = [[] for _ in range(batch_size)]
+        left_childs = [None for _ in range(batch_size)]
+
+        beams = [TreeBeam(0.0, node_stacks, embeddings_stacks, left_childs, [])]
+
+        for t in range(max_length):
+            current_beams = []
+            while len(beams) > 0:
+                b = beams.pop()
+                if len(b.node_stack[0]) == 0:
+                    current_beams.append(b)
+                    continue
+                # left_childs = torch.stack(b.left_childs)
+                left_childs = b.left_childs
+
+                num_score, op, current_embeddings, current_context, current_nums_embeddings = self.prediction(
+                    b.node_stack, left_childs, encoder_outputs, all_nums_encoder_outputs, padding_hidden,
+                    seq_mask, num_mask)
+
+                out_score = F.log_softmax(
+                    torch.cat((op, num_score), dim=1), dim=1)
+
+                topv, topi = out_score.topk(beam_size)
+
+                for tv, ti in zip(topv.split(1, dim=1), topi.split(1, dim=1)):
+                    current_node_stack = copy_list(b.node_stack)
+                    current_left_childs = []
+                    current_embeddings_stacks = copy_list(b.embedding_stack)
+                    current_out = copy.deepcopy(b.out)
+
+                    out_token = int(ti)
+                    current_out.append(out_token)
+
+                    node = current_node_stack[0].pop()
+
+                    if out_token < num_start:
+                        generate_input = torch.LongTensor([out_token])
+                        if self.cuda_use:
+                            generate_input = generate_input.cuda()
+                        left_child, right_child, node_label = self.generation(
+                            current_embeddings, generate_input, current_context)
+
+                        current_node_stack[0].append(TreeNode(right_child))
+                        current_node_stack[0].append(
+                            TreeNode(left_child, left_flag=True))
+
+                        current_embeddings_stacks[0].append(
+                            TreeEmbedding(node_label[0].unsqueeze(0), False))
+                    else:
+                        current_num = current_nums_embeddings[0,
+                                                              out_token - num_start].unsqueeze(0)
+
+                        while len(current_embeddings_stacks[0]) > 0 and current_embeddings_stacks[0][-1].terminal:
+                            sub_stree = current_embeddings_stacks[0].pop()
+                            op = current_embeddings_stacks[0].pop()
+                            current_num = self.merge(
+                                op.embedding, sub_stree.embedding, current_num)
+                        current_embeddings_stacks[0].append(
+                            TreeEmbedding(current_num, True))
+                    if len(current_embeddings_stacks[0]) > 0 and current_embeddings_stacks[0][-1].terminal:
+                        current_left_childs.append(
+                            current_embeddings_stacks[0][-1].embedding)
+                    else:
+                        current_left_childs.append(None)
+                    current_beams.append(TreeBeam(b.score + float(tv), current_node_stack, current_embeddings_stacks,
+                                                  current_left_childs, current_out))
+            beams = sorted(current_beams, key=lambda x: x.score, reverse=True)
+            beams = beams[:beam_size]
+            flag = True
+            for b in beams:
+                if len(b.node_stack[0]) != 0:
+                    flag = False
+            if flag:
+                break
+
+        return beams[0].out
 
     def get_all_number_encoder_outputs(self, encoder_outputs, num_pos, batch_size, num_size, hidden_size):
         """
@@ -190,7 +296,7 @@ class Seq2Tree(nn.Module):
         # logits_flat: (batch * max_len, num_classes)
         logits_flat = logits.view(-1, logits.size(-1))
         # log_probs_flat: (batch * max_len, num_classes)
-        log_probs_flat = nn.functional.log_softmax(logits_flat, dim=1)
+        log_probs_flat = F.log_softmax(logits_flat, dim=1)
         # target_flat: (batch * max_len, 1)
         target_flat = target.view(-1, 1)
         # losses_flat: (batch * max_len, 1)
