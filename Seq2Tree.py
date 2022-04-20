@@ -124,7 +124,7 @@ class Seq2Tree(nn.Module):
         return loss.item()
 
     def test(self, input, input_len, generate_nums, num_pos, beam_size, max_length):
-        seq_mask = torch.ByteTensor(1, input_len).fill_(0)
+        seq_mask = torch.ByteTensor(1, input_len[0]).fill_(0)
         # Turn padded arrays into (batch_size x max_len) tensors, transpose into (max_len x batch_size)
         input_var = torch.LongTensor(input).unsqueeze(1)
 
@@ -141,13 +141,13 @@ class Seq2Tree(nn.Module):
             num_mask = num_mask.cuda()
         # Run words through encoder
 
-        encoder_outputs, problem_output = self.encoder(input_var, [input_len])
+        encoder_outputs, problem_output = self.encoder(input_var, input_len)
 
         # Prepare input and output variables
         node_stacks = [[TreeNode(_)] for _ in problem_output.split(1, dim=0)]
 
         num_size = len(num_pos)
-        all_nums_encoder_outputs = self.get_all_number_encoder_outputs(encoder_outputs, [num_pos], batch_size, num_size,
+        all_nums_encoder_outputs = self.get_all_number_encoder_outputs(encoder_outputs, num_pos, batch_size, num_size,
                                                                   self.encoder.hidden_size)
         num_start = 5
         # B x P x N
@@ -225,7 +225,6 @@ class Seq2Tree(nn.Module):
                     flag = False
             if flag:
                 break
-
         return beams[0].out
 
     def get_all_number_encoder_outputs(self, encoder_outputs, num_pos, batch_size, num_size, hidden_size):

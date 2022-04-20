@@ -31,7 +31,7 @@ class Trainer(object):
     def train(self, model, epoch_num=100, start_epoch=0, valid_every=10):
         train_list = self.data_loader.train_data
         valid_list = self.data_loader.valid_data
-        best_valid = 0
+        best_valid = 1e5
         path = ""
 
         for epoch in range(start_epoch, epoch_num):
@@ -92,7 +92,7 @@ class Trainer(object):
                 if start_step % self.print_every == 0:
                     print("Epoch %d Batch Loss: %.5f  |  Step %d Batch Train Loss: %.2f" % (epoch+1, total_loss/total_num, start_step, loss))
 
-            if (epoch+1) % valid_every == 0 and epoch > 0:
+            if (epoch+1) % valid_every == 0:
                 valid_loss = self.evaluate(model, valid_list)
                 if valid_loss < best_valid:
                     best_valid = valid_loss
@@ -111,7 +111,7 @@ class Trainer(object):
         value_ac = 0
         equation_ac = 0
         eval_total = 0
-        for batch in self.data_loader.yield_batch(data, self.batch_size):
+        for batch in self.data_loader.yield_batch(data, 1):
             input = batch['batch_encode_pad_idx']
             input_len = batch['batch_encode_len']
             target = batch['batch_decode_pad_idx']
@@ -141,7 +141,7 @@ class Trainer(object):
             eval_total += 1
         print(equation_ac, value_ac, eval_total)
         print("test_answer_acc", float(equation_ac) / eval_total, float(value_ac) / eval_total)
-        return total_loss
+        return equation_ac
 
     def compute_prefix_tree_result(self, test_res, test_tar, num_list, num_stack):
         # print(test_res, test_tar)

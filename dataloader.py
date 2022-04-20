@@ -35,8 +35,8 @@ class Word2Vec():
                 new_data[elem] = new_data.get(elem, 0) + 1
                 # new_data.get(elem, 0)字典key不存在时返回默认值0
 
-        model = word2vec.Word2Vec(sentences, vector_size=128, min_count=1)  # 本地训练
-        # model = word2vec.Word2Vec(sentences, size=128, min_count=1)  # 服务器
+        # model = word2vec.Word2Vec(sentences, vector_size=128, min_count=1)  # 本地训练
+        model = word2vec.Word2Vec(sentences, size=128, min_count=1)  # 服务器
 
         token = ['PAD_token', 'SOS_token', 'END_token', 'UNK_token']
         emb_vectors = []
