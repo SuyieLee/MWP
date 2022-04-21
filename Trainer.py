@@ -31,7 +31,7 @@ class Trainer(object):
     def train(self, model, epoch_num=100, start_epoch=0, valid_every=10):
         train_list = self.data_loader.train_data
         valid_list = self.data_loader.valid_data
-        best_valid = 1e5
+        best_valid = 0
         path = ""
 
         for epoch in range(start_epoch, epoch_num):
@@ -66,12 +66,12 @@ class Trainer(object):
                     print("Epoch %d Batch Loss: %.5f  |  Step %d Batch Train Loss: %.2f" % (epoch+1, total_loss/total_num, start_step, loss))
 
             if (epoch+1) % valid_every == 0:
-                valid_loss = self.evaluate(model, valid_list)
-                if valid_loss < best_valid:
-                    best_valid = valid_loss
-                    path = os.path.join('./model/', "epoch_"+str(epoch+1)+"_result"+str(best_valid)+".pt")
+                valid_acc = self.evaluate(model, valid_list)
+                if valid_acc > best_valid:
+                    best_valid = valid_acc
+                    path = os.path.join('./model/', "epoch_"+str(epoch+1)+"_result"+str(best_valid)+".pth")
                     torch.save(model.state_dict(), path)
-                print("Valid Loss: %.2f" % best_valid)
+                print("Best Valid Acc: %.2f | Valid Acc: %.2f" % (best_valid ,valid_acc))
         return path
 
     def evaluate(self, model, data):
@@ -103,8 +103,8 @@ class Trainer(object):
                 equation_ac += 1
             eval_total += 1
         print(equation_ac, value_ac, eval_total)
-        print("test_answer_acc", float(equation_ac) / eval_total, float(value_ac) / eval_total)
-        return equation_ac
+        print("evaluate_answer_acc", float(equation_ac) / eval_total, float(value_ac) / eval_total)
+        return value_ac
 
     def compute_prefix_tree_result(self, test_res, test_tar, num_list, num_stack):
         # print(test_res, test_tar)
