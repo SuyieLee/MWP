@@ -38,11 +38,18 @@ class Seq2Tree(nn.Module):
         num_mask = torch.ByteTensor(num_mask)
         batch_size = len(input_len)
 
-        copy_num_len = [len(_) for _ in num_pos]  # 数字列表的长度
-        num_size = max(copy_num_len)  # 数字列表最大长度
+        input = torch.LongTensor(input).transpose(0, 1)
+        target = torch.LongTensor(target).transpose(0, 1)
 
+        unk = self.data_loader.decode_classes_dict['UNK_token']
+        num_start = 5  # 5是指符号的个数，除符号外数字开始的下标
         max_target_length = max(target_len)  # 表达式的最大长度
         padding_hidden = torch.FloatTensor([0.0 for _ in range(self.prediction.hidden_size)]).unsqueeze(0)
+
+        self.encoder.train()
+        self.prediction.train()
+        self.generation.train()
+        self.merge.train()
 
         if self.cuda_use:
             input = input.cuda()
@@ -50,10 +57,16 @@ class Seq2Tree(nn.Module):
             padding_hidden = padding_hidden.cuda()
             num_mask = num_mask.cuda()
 
+        self.encoder_optimizer.zero_grad()
+        self.prediction_optimizer.zero_grad()
+        self.generation_optimizer.zero_grad()
+        self.merge_optimizer.zero_grad()
+
         encoder_outputs, problem_output = self.encoder(input, input_len)
         node_stacks = [[TreeNode(_)] for _ in problem_output.split(1, dim=0)]  # 生成根节点
-
-        num_start = 5  # 5是指符号的个数，除符号外数字开始的下标
+        
+        copy_num_len = [len(_) for _ in num_pos]  # 数字列表的长度
+        num_size = max(copy_num_len)  # 数字列表最大长度
         all_nums_encoder_outputs = self.get_all_number_encoder_outputs(encoder_outputs, num_pos, batch_size, num_size,
                                                                        self.encoder.hidden_size)
 
@@ -66,7 +79,6 @@ class Seq2Tree(nn.Module):
             # all_leafs.append(p_leaf)
             outputs = torch.cat((op, num_score), 1)
             all_node_outputs.append(outputs)
-            unk = self.data_loader.decode_classes_dict['UNK_token']
             target_t, generate_input = self.generate_tree_input(
                 target[t].tolist(), outputs, nums_stack_batch, num_start, unk)
             target[t] = target_t
@@ -115,16 +127,20 @@ class Seq2Tree(nn.Module):
         # loss = loss_0 + loss_1
         loss.backward()
         # clip the grad
-        torch.nn.utils.clip_grad_norm_(self.encoder.parameters(), 1)
-        torch.nn.utils.clip_grad_norm_(self.prediction.parameters(), 1)
-        torch.nn.utils.clip_grad_norm_(self.generation.parameters(), 1)
-        torch.nn.utils.clip_grad_norm_(self.merge.parameters(), 1)
+        # torch.nn.utils.clip_grad_norm_(self.encoder.parameters(), 1)
+        # torch.nn.utils.clip_grad_norm_(self.prediction.parameters(), 1)
+        # torch.nn.utils.clip_grad_norm_(self.generation.parameters(), 1)
+        # torch.nn.utils.clip_grad_norm_(self.merge.parameters(), 1)
 
+        self.encoder_optimizer.step()
+        self.prediction_optimizer.step()
+        self.generation_optimizer.step()
+        self.merge_optimizer.step()
         # Update parameters with optimizers
         return loss.item()
 
     def test(self, input, input_len, generate_nums, num_pos, beam_size, max_length):
-        seq_mask = torch.ByteTensor(1, input_len[0]).fill_(0)
+        seq_mask = torch.ByteTensor(1, input_len).fill_(0)
         # Turn padded arrays into (batch_size x max_len) tensors, transpose into (max_len x batch_size)
         input_var = torch.LongTensor(input).unsqueeze(1)
 
@@ -141,13 +157,13 @@ class Seq2Tree(nn.Module):
             num_mask = num_mask.cuda()
         # Run words through encoder
 
-        encoder_outputs, problem_output = self.encoder(input_var, input_len)
+        encoder_outputs, problem_output = self.encoder(input_var, [input_len])
 
         # Prepare input and output variables
         node_stacks = [[TreeNode(_)] for _ in problem_output.split(1, dim=0)]
 
         num_size = len(num_pos)
-        all_nums_encoder_outputs = self.get_all_number_encoder_outputs(encoder_outputs, num_pos, batch_size, num_size,
+        all_nums_encoder_outputs = self.get_all_number_encoder_outputs(encoder_outputs, [num_pos], batch_size, num_size,
                                                                   self.encoder.hidden_size)
         num_start = 5
         # B x P x N

@@ -20,7 +20,7 @@ class Trainer(object):
         self.decode_classes_list = decode_classes_list
         self.cuda_use = cuda_use
         self.print_every = print_every
-        self.optimizer = optim.Adam(model.parameters())
+        # self.optimizer = optim.Adam(model.parameters())
         self.batch_size = batch_size
         self.MAX_OUTPUT_LENGTH = 45
         if loss is None:
@@ -35,16 +35,15 @@ class Trainer(object):
         path = ""
 
         for epoch in range(start_epoch, epoch_num):
-            model.encoder_optimizer.step()
-            model.prediction_optimizer.step()
-            model.generation_optimizer.step()
-            model.merge_optimizer.step()
-
+            model.encoder_scheduler.step()
+            model.prediction_scheduler.step()
+            model.generation_scheduler.step()
+            model.merge_scheduler.step()
+            
             start_step = 0
             total_num = 0
             total_loss = 0
             total_acc_num = 0
-            model.train()
             print("Epoch " + str(epoch+1) + " start training!")
             for batch in self.data_loader.yield_batch(train_list, self.batch_size):
                 input = batch['batch_encode_pad_idx']
@@ -57,36 +56,10 @@ class Trainer(object):
                 batch_num_index_list = batch['batch_num_index_list']
                 nums_stack_batch = batch['nums_stack_batch']
 
-                model.prediction.train()
-                model.encoder.train()
-                model.generation.train()
-                model.merge.train()
-
-                batch_size = len(input)
-                total_num += batch_size
-
-                input = Variable(torch.LongTensor(input))
-                target = Variable(torch.LongTensor(target))
-
-                input = input.transpose(0, 1)
-                target = target.transpose(0, 1)
-
-                if self.cuda_use:
-                    input = input.cuda()
-                    target = target.cuda()
-
-                model.encoder_optimizer.zero_grad()
-                model.prediction_optimizer.zero_grad()
-                model.generation_optimizer.zero_grad()
-                model.merge_optimizer.zero_grad()
+                total_num += len(input)
 
                 loss = model(input, input_len, target, target_len, batch_num_count, self.data_loader.generate_op_index, batch_num_index_list, nums_stack_batch)
                 total_loss += loss
-
-                model.encoder_scheduler.step()
-                model.prediction_scheduler.step()
-                model.generation_scheduler.step()
-                model.merge_scheduler.step()
 
                 start_step += 1
                 if start_step % self.print_every == 0:
@@ -112,25 +85,15 @@ class Trainer(object):
         equation_ac = 0
         eval_total = 0
         for batch in self.data_loader.yield_batch(data, 1):
-            input = batch['batch_encode_pad_idx']
-            input_len = batch['batch_encode_len']
-            target = batch['batch_decode_pad_idx']
-            target_len = batch['batch_decode_len']
-            function_ans = batch['batch_ans']
-            num_list = batch['batch_num_list']
-            batch_num_count = batch['batch_num_count']
-            batch_num_index_list = batch['batch_num_index_list']
-            nums_stack_batch = batch['nums_stack_batch']
-
-            input = Variable(torch.LongTensor(input))
-            target = Variable(torch.LongTensor(target))
-
-            input = input.transpose(0, 1)
-            target = target.transpose(0, 1)
-
-            if self.cuda_use:
-                input = input.cuda()
-                target = target.cuda()
+            input = batch['batch_encode_pad_idx'][0]
+            input_len = batch['batch_encode_len'][0]
+            target = batch['batch_decode_pad_idx'][0]
+            target_len = batch['batch_decode_len'][0]
+            function_ans = batch['batch_ans'][0]
+            num_list = batch['batch_num_list'][0]
+            batch_num_count = batch['batch_num_count'][0]
+            batch_num_index_list = batch['batch_num_index_list'][0]
+            nums_stack_batch = batch['nums_stack_batch'][0]
 
             test_res = model.test(input, input_len, self.data_loader.generate_op_index, batch_num_index_list, beam_size=5, max_length=self.MAX_OUTPUT_LENGTH)
             val_ac, equ_ac, _, _ = self.compute_prefix_tree_result(test_res, target, num_list, nums_stack_batch)
