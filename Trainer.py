@@ -71,6 +71,9 @@ class Trainer(object):
                     best_valid = valid_acc
                     path = os.path.join('./model/', "epoch_"+str(epoch+1)+"_result"+str(best_valid)+".pth")
                     torch.save(model.state_dict(), path)
+                elif (epoch+1) % 10 == 0:
+                    path = os.path.join('./model/', "epoch_"+str(epoch+1)+"_result"+str(valid_acc)+".pth")
+                    torch.save(model.state_dict(), path)
                 print("Best Valid Acc: %.2f | Valid Acc: %.2f" % (best_valid ,valid_acc))
         return path
 
