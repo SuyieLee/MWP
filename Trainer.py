@@ -43,7 +43,7 @@ class Trainer(object):
             start_step = 0
             total_num = 0
             total_loss = 0
-            total_acc_num = 0
+            self.data_loader.shuffle_data()
             print("Epoch " + str(epoch+1) + " start training!")
             for batch in self.data_loader.yield_batch(train_list, self.batch_size):
                 input = batch['batch_encode_pad_idx']

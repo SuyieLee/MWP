@@ -105,6 +105,9 @@ class DataLoader():
         self.train_data, self.valid_data, self.test_data = split_data(self.data_23k.data_dict)
         self.templates = read_json_data("./data/norm_templates.json")
 
+    def shuffle_data(self):
+        np.random.shuffle(self.train_data)
+
     def get_num_stack(self, target, num_list):
         num_stack = []
         for word in target:
