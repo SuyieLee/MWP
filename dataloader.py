@@ -138,6 +138,7 @@ class DataLoader():
         batch_ans = [] # 答案
         batch_template = []
         nums_stack_batch = []
+        batch_equation = []
 
         # 获取每个batch的原数据
         for elem in data:
@@ -155,7 +156,7 @@ class DataLoader():
 
             # target = ['SOS_token']
             target = []
-            # target = elem[1]['target_template']
+            batch_equation.append(elem[1]['target_template'])
             target += self.templates[idx]
             target = target[::-1]  # 翻转成前缀表达式
             num_stack = self.get_num_stack(target, elem[1]['num_list'])
@@ -187,8 +188,9 @@ class DataLoader():
             batch_decode_pad_idx.append(decode_sen_pad_idx)
 
         batch_data_dict = {}
+        batch_data_dict['equation'] = batch_equation
         batch_data_dict['batch_encode_pad_idx'] = batch_encode_pad_idx
-        # batch_data_dict['batch_text'] = batch_text
+        batch_data_dict['batch_text'] = batch_text
         batch_data_dict['batch_encode_idx'] = batch_encode_idx
         batch_data_dict['batch_encode_len'] = batch_encode_len
 

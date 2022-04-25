@@ -87,7 +87,9 @@ class Trainer(object):
         value_ac = 0
         equation_ac = 0
         eval_total = 0
+        count = 0
         for batch in self.data_loader.yield_batch(data, 1):
+            id = batch['batch_index'][0]
             input = batch['batch_encode_pad_idx'][0]
             input_len = batch['batch_encode_len'][0]
             target = batch['batch_decode_pad_idx'][0]
@@ -97,11 +99,16 @@ class Trainer(object):
             batch_num_count = batch['batch_num_count'][0]
             batch_num_index_list = batch['batch_num_index_list'][0]
             nums_stack_batch = batch['nums_stack_batch'][0]
+            batch_text = batch['batch_text']
+            batch_template = batch['batch_template']
 
             test_res = model.test(input, input_len, self.data_loader.generate_op_index, batch_num_index_list, beam_size=5, max_length=self.MAX_OUTPUT_LENGTH)
-            val_ac, equ_ac, _, _ = self.compute_prefix_tree_result(test_res, target, num_list, nums_stack_batch)
+            val_ac, equ_ac, res, target_res = self.compute_prefix_tree_result(test_res, target, num_list, nums_stack_batch)
             if val_ac:
                 value_ac += 1
+            # else:
+            #     count += 1
+            #     print("count:%d\n text: %s \nequation: %s \n__target: %s \ngeneration: %s" %(count, batch_text, batch_template[0], target_res, res))
             if equ_ac:
                 equation_ac += 1
             eval_total += 1
