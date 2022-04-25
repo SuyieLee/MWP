@@ -4,6 +4,7 @@ import re
 
 
 def out_expression_list(test, dataloader, num_list, num_stack=None):
+    ch = "abcdefghijklmnopqrstuvwsyz"
     max_index = len(dataloader.decode_classes_list)
     res = []
     for i in test:
@@ -11,10 +12,10 @@ def out_expression_list(test, dataloader, num_list, num_stack=None):
         #     return res
         if i < max_index - 1:
             idx = dataloader.decode_classes_list[i]
-            if idx[0] == "N":
-                if int(idx[1:]) >= len(num_list):
+            if idx[0] == "t":
+                if ch.index(idx[-1]) >= len(num_list):
                     return None
-                res.append(num_list[int(idx[1:])])
+                res.append(num_list[ch.index(idx[-1])])
             else:
                 res.append(idx)
         else:

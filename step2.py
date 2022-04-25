@@ -1,6 +1,7 @@
 import os
 from Trainer import Trainer
-from step1 import args
+import argparse
+from step1 import getArgs
 import torch
 from treemodel import EncoderRNN, Prediction, GenerateNode, Merge
 from Seq2Tree import Seq2Tree
@@ -9,7 +10,7 @@ from dataloader import DataLoader
 # from argparse import ArgumentParser
 import torch.nn as nn
 
-
+args = getArgs()
 data_loader = DataLoader(args)
 embed_model = nn.Embedding(data_loader.vocab_len, args.embedding_size)
 # embed_model.weight初始化是正态分布N(0,1)
