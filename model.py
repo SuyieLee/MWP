@@ -55,7 +55,7 @@ class DecoderRNN(nn.Module):
         if embed_model:
             self.embedding = embed_model
         else:
-            self.embed_model = nn.Embedding(self.vocab_size, self.embed_size)
+            self.embedding = nn.Embedding(self.classes_size, self.embed_size)
         if layers == 2:
             self.rnn = nn.LSTM(self.embed_size, self.hidden_size, layers, dropout=dropout)
         else:
@@ -102,9 +102,9 @@ class Seq2Seq(nn.Module):
             hidden = tuple([self._cat_directions(h) for h in hidden])
             # hidden = torch.cat([hidden[0:hidden.size(0):2], hidden[1:hidden.size(0):2]], 2)
 
-        decoder_input = target[0, :]  # decoder 的第一个输入是<sos>
-        for t in range(1, target_len):
-            output, hidden = self.decoder(decoder_input, hidden)  # hidden = (hidden, cell)
+        decoder_input = target  # decoder 的第一个输入是<sos>
+        for t in range(0, target_len):
+            output, hidden = self.decoder(decoder_input[t], hidden)  # hidden = (hidden, cell)
             outputs[t] = output
             teacher_forcing = random.random() < teacher_forcing_ratio
             top1 = output.argmax(1)

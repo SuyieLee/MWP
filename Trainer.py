@@ -1,3 +1,4 @@
+from numpy import argmax
 import torch.optim as optim
 from torch.nn import Dropout
 from torch.autograd import Variable
@@ -62,19 +63,23 @@ class Trainer(object):
                 # target = [trg len * batch size]
                 # output = [trg len, batch size, classes len]
                 classes_len = output.shape[-1]
-                output = output[1:].view(-1, classes_len)
-                target = target[1:].contiguous().view(-1)
+                output = output.view(-1, classes_len)
+                target = target.contiguous().view(-1)
 
                 if self.cuda_use:
                     output = output.cuda()
                     target = target.cuda()
 
-                batch_acc_num = self.get_ans_acc(output, function_ans, batch_size, num_list)
+                # batch_acc_num = self.get_ans_acc(output, function_ans, batch_size, num_list)
+                batch_acc_num = 0
+                for idx in range(batch_size):
+                    if target[idx] == torch.argmax(output[idx]):
+                        batch_acc_num += 1
                 total_acc_num += batch_acc_num
 
                 loss = self.criterion(output, target)
-                total_loss += loss
                 loss.backward()
+                total_loss += loss
 
                 torch.nn.utils.clip_grad_norm_(model.parameters(), 1)  # CLIP=1
                 self.optimizer.step()

@@ -26,10 +26,17 @@ class Word2Vec():
         训练word2vec模型，将所有的词和几个特殊符号编码，得到embedding向量
         :return:
         """
+        ch = "abcdefghijklmnopqrstuvwsyz"
         new_data = {}
         sentences = []
+        ans_list = []
         for k,v in self.data.data_dict.items():
             sentence = v['text'].strip().split(' ')
+            num_list = v['num_list']
+            for i in range(len(sentence)):
+                if sentence[i][0] == 't' and len(sentence[i]) > 4:
+                    sentence[i] = num_list[ch.index(sentence[i][-1])]
+            ans_list.append(v['ans'])
             sentences.append(sentence)
             for elem in sentence:
                 new_data[elem] = new_data.get(elem, 0) + 1
@@ -45,12 +52,12 @@ class Word2Vec():
         emb_vectors.append(np.random.rand((128)) / 1000.0)
         emb_vectors.append(np.random.rand((128)) / 1000.0)
 
-        op_list = [u'+', u'*', u'-', u'/', u'1', u'PI', u'temp_m', u'temp_l', u'temp_o', u'temp_n', u'temp_i', u'temp_h', u'temp_k', u'temp_j', u'temp_e', u'temp_d', u'temp_g', u'temp_f', u'temp_a', u'temp_c', u'temp_b', u'^']
+        # op_list = [u'+', u'*', u'-', u'/', u'1', u'PI', u'temp_m', u'temp_l', u'temp_o', u'temp_n', u'temp_i', u'temp_h', u'temp_k', u'temp_j', u'temp_e', u'temp_d', u'temp_g', u'temp_f', u'temp_a', u'temp_c', u'temp_b', u'^']
         for k,v in new_data.items():
             token.append(k)
             # model.wv[k]获取对应的字符的embedding
             emb_vectors.append(np.array(model.wv[k]))  # np.array(model.wv[k]) = model.wv[k]
-        for elem in op_list:
+        for elem in ans_list:
             if elem in token:
                 continue
             else:
@@ -73,7 +80,7 @@ class DataLoader():
         self.args = args
         self.data_23k = DataMath23k()
         print("---------math23k数据加载完成---------")
-        self.word2vec = Word2Vec(self.data_23k, True) # True则直接加载
+        self.word2vec = Word2Vec(self.data_23k, False) # True则直接加载
         self.vocab_list = read_json_data("./data/new_token_list.json")
         vocab_dict = {}
         for idx, elem in enumerate(self.vocab_list):
@@ -81,10 +88,13 @@ class DataLoader():
         self.vocab_dict = vocab_dict
         self.vocab_len = len(self.vocab_list)
 
-        self.decode_classes_list = ['PAD_token', 'SOS_token', 'END_token'] + [u'^', u'1', u'PI', u'temp_m', u'temp_l', u'temp_o',
-                                                                 u'temp_n', u'temp_i', u'temp_h', u'temp_k', u'temp_j',
-                                                                 u'temp_e', u'temp_d', u'temp_g', u'temp_f', u'temp_a',
-                                                                 u'temp_c', u'temp_b', u'/', u'-', u'+', u'*', u'^']
+        self.decode_classes_list = []
+        for k,v in self.data_23k.data_dict.items():
+            self.decode_classes_list.append(v['ans'])
+        # self.decode_classes_list = ['PAD_token', 'SOS_token', 'END_token'] + [u'^', u'1', u'PI', u'temp_m', u'temp_l', u'temp_o',
+        #                                                          u'temp_n', u'temp_i', u'temp_h', u'temp_k', u'temp_j',
+        #                                                          u'temp_e', u'temp_d', u'temp_g', u'temp_f', u'temp_a',
+        #                                                          u'temp_c', u'temp_b', u'/', u'-', u'+', u'*', u'^']
         # 解码器输出的词表
         self.decode_classes_dict = {}
         for idx, elem in enumerate(self.decode_classes_list):
@@ -95,7 +105,8 @@ class DataLoader():
         self.templates = read_json_data("./data/norm_templates.json")
 
     def data_batch_process(self, data):
-        batch_encode_idx = [] #
+        ch = "abcdefghijklmnopqrstuvwsyz"
+        batch_encode_idx = [] 
         batch_decode_idx = []
         batch_encode_len = []
         batch_decode_len = []
@@ -109,24 +120,29 @@ class DataLoader():
         # 获取每个batch的原数据
         for elem in data:
             idx = elem[0]
-            text = elem[1]['text']
+            text = elem[1]['text'].split(' ')
+            num_list = elem[1]['num_list']
+            for i in range(len(text)):
+                if text[i][0] == 't' and len(text[i]) > 4:
+                    text[i] = num_list[ch.index(text[i][-1])]
             batch_text.append(text)
-            text_idx = string_2_idx_sen(text.split(' '), self.vocab_dict)
-            text_idx = [self.decode_classes_dict['SOS_token']] + text_idx + [self.decode_classes_dict['END_token']]
+            text_idx = string_2_idx_sen(text, self.vocab_dict)
+            # text_idx = [self.decode_classes_dict['SOS_token']] + text_idx + [self.decode_classes_dict['END_token']]
             batch_encode_idx.append(text_idx)
             batch_encode_len.append(len(text_idx))
 
-            target = ['SOS_token']
+            # target = ['SOS_token']
             # target = elem[1]['target_template']
-            target += self.templates[idx]
+            # target += self.templates[idx]
             # target.append('END_token')
+            target=elem[1]['ans']
             batch_template.append(target)
-            target_idx = string_2_idx_sen(target, self.decode_classes_dict)
+            target_idx = string_2_idx_sen([target], self.decode_classes_dict)
             batch_decode_idx.append(target_idx)
             batch_decode_len.append(len(target_idx))
 
             batch_idxs.append(idx)
-            batch_num_list.append(elem[1]['num_list'])
+            batch_num_list.append(num_list)
             batch_ans.append(elem[1]['ans'])
 
         # 求这个batch里面最长的，后面做paddinh对齐
@@ -140,7 +156,7 @@ class DataLoader():
             batch_encode_pad_idx.append(encode_sen_pad_idx)
 
             decode_sen_idx = batch_decode_idx[i]
-            decode_sen_pad_idx = pad_sen(decode_sen_idx, max_decoder_len, self.decode_classes_dict['PAD_token'])
+            decode_sen_pad_idx = pad_sen(decode_sen_idx, max_decoder_len, 0)
             batch_decode_pad_idx.append(decode_sen_pad_idx)
 
         batch_data_dict = {}
