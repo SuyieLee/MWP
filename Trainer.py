@@ -87,7 +87,12 @@ class Trainer(object):
         value_ac = 0
         equation_ac = 0
         eval_total = 0
-        count = 0
+        jia_count = 0
+        jian_count =0
+        cheng_count = 0
+        chu_count = 0
+        zhi_count = 0
+        total = 0
         for batch in self.data_loader.yield_batch(data, 1):
             id = batch['batch_index'][0]
             input = batch['batch_encode_pad_idx'][0]
@@ -106,9 +111,19 @@ class Trainer(object):
             val_ac, equ_ac, res, target_res = self.compute_prefix_tree_result(test_res, target, num_list, nums_stack_batch)
             if val_ac:
                 value_ac += 1
-            # else:
-            #     count += 1
-            #     print("count:%d\n text: %s \nequation: %s \n__target: %s \ngeneration: %s" %(count, batch_text, batch_template[0], target_res, res))
+            else:
+                if '^' in target_res:
+                    zhi_count += 1
+                if '+' in target_res:
+                    jia_count += 1
+                if '-' in target_res:
+                    jian_count += 1
+                if '*' in target_res:
+                    cheng_count += 1
+                if '/' in target_res:
+                    chu_count += 1
+                total += 1
+                # print("count:%d\n text: %s \nequation: %s \n__target: %s \ngeneration: %s" %(count, batch_text, batch_template[0], target_res, res))
             if equ_ac:
                 equation_ac += 1
             eval_total += 1
@@ -123,6 +138,7 @@ class Trainer(object):
             return True, True, test_res, test_tar
         test = out_expression_list(test_res, self.data_loader, num_list)
         tar = out_expression_list(test_tar, self.data_loader, num_list, copy.deepcopy(num_stack))
+        
         # print(test, tar)
         if test is None:
             return False, False, test, tar

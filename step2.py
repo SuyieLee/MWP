@@ -63,4 +63,4 @@ file_last = os.path.join('./model/', lists[-1])
 model.load_state_dict(torch.load(file_last))
 print("------------开始测试-------------")
 # model.load_state_dict(torch.load(path))s
-test_ans_acc = trainer.evaluate(model, data_loader.valid_data)
+test_ans_acc = trainer.evaluate(model, data_loader.test_data)
