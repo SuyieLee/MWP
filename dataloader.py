@@ -42,7 +42,9 @@ class Word2Vec():
                 new_data[elem] = new_data.get(elem, 0) + 1
                 # new_data.get(elem, 0)字典key不存在时返回默认值0
 
-        model = word2vec.Word2Vec(sentences, vector_size=128, min_count=1) # 训练
+        # model = word2vec.Word2Vec(sentences, vector_size=128, min_count=1) # 训练
+        model = word2vec.Word2Vec(sentences, size=128, min_count=1)  # 服务器
+
         token = ['PAD_token', 'SOS_token', 'END_token', 'UNK_token']
         emb_vectors = []
 
@@ -88,9 +90,10 @@ class DataLoader():
         self.vocab_dict = vocab_dict
         self.vocab_len = len(self.vocab_list)
 
-        self.decode_classes_list = []
+        self.decode_classes_list = ['SOS_token']
         for k,v in self.data_23k.data_dict.items():
             self.decode_classes_list.append(v['ans'])
+        np.random.shuffle(self.decode_classes_list)
         # self.decode_classes_list = ['PAD_token', 'SOS_token', 'END_token'] + [u'^', u'1', u'PI', u'temp_m', u'temp_l', u'temp_o',
         #                                                          u'temp_n', u'temp_i', u'temp_h', u'temp_k', u'temp_j',
         #                                                          u'temp_e', u'temp_d', u'temp_g', u'temp_f', u'temp_a',
@@ -103,6 +106,9 @@ class DataLoader():
 
         self.train_data, self.valid_data, self.test_data = split_data(self.data_23k.data_dict)
         self.templates = read_json_data("./data/norm_templates.json")
+    
+    def shuffle_data(self):
+        np.random.shuffle(self.train_data)
 
     def data_batch_process(self, data):
         ch = "abcdefghijklmnopqrstuvwsyz"
@@ -131,13 +137,13 @@ class DataLoader():
             batch_encode_idx.append(text_idx)
             batch_encode_len.append(len(text_idx))
 
-            # target = ['SOS_token']
+            target = ['SOS_token']
             # target = elem[1]['target_template']
             # target += self.templates[idx]
             # target.append('END_token')
-            target=elem[1]['ans']
+            target.append(elem[1]['ans'])
             batch_template.append(target)
-            target_idx = string_2_idx_sen([target], self.decode_classes_dict)
+            target_idx = string_2_idx_sen(target, self.decode_classes_dict)
             batch_decode_idx.append(target_idx)
             batch_decode_len.append(len(target_idx))
 

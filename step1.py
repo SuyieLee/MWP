@@ -28,10 +28,11 @@ def getArgs():
     parser.add_argument('--cuda_use', type=bool, dest='cuda_use', default=True)
     parser.add_argument('--checkpoint_dir_name', type=str, dest='checkpoint_dir_name', default="0000-0000", help='模型存储名字')
     parser.add_argument('--batch_size', type=int, dest='batch_size', default=64)
-    parser.add_argument('--epoch_num', type=int, dest='epoch_num', default=1)
+    parser.add_argument('--epoch_num', type=int, dest='epoch_num', default=50)
     parser.add_argument('--bidirectional', type=bool, dest='bidirectional', default=True)
-    parser.add_argument('--print_every', type=int, dest='print_every', default=10)
-    parser.add_argument('--valid_every', type=int, dest='valid_every', default=2)
+    parser.add_argument('--print_every', type=int, dest='print_every', default=20)
+    parser.add_argument('--valid_every', type=int, dest='valid_every', default=1)
+    parser.add_argument('--start_epoch', type=int, dest='start_epoch', default=0)
     return parser.parse_args()
 
 
@@ -86,8 +87,15 @@ def step_one_train():
                       checkpoint_dir_name=args.checkpoint_dir_name
                       )
     print("------------开始训练-------------")
-    trainer.train(model, epoch_num=args.epoch_num, resume=args.resume, valid_every=args.valid_every)
+    start_epoch = args.start_epoch
+    if start_epoch > 0:
+        lists = os.listdir('./model/')
+        lists.sort(key=lambda x: os.path.getmtime(('./model/' + x)))  # 获取最新产生的模型
+        file_last = os.path.join('./model/', lists[-1])
+        model.load_state_dict(torch.load(file_last))
+    path = trainer.train(model, epoch_num=args.epoch_num, resume=args.resume, valid_every=args.valid_every)
     print("------------开始测试-------------")
+    # model.load_state_dict(torch.load(path))
     test_ans_acc = trainer.evaluate(model, data_loader.test_data)
     print("Test Acc: %.2f  Acc: %d / %d" % (100*test_ans_acc/len(data_loader.test_data), test_ans_acc, len(data_loader.test_data)))
 

@@ -1,3 +1,4 @@
+from signal import valid_signals
 from numpy import argmax
 import torch.optim as optim
 from torch.nn import Dropout
@@ -5,7 +6,7 @@ from torch.autograd import Variable
 from data_tools import post_solver, inverse_temp_to_num
 import torch
 import torch.nn as nn
-
+import os
 
 class Trainer(object):
     def __init__(self, model, loss=None, weight=None, vocab_dict=None, vocab_list=None, data_loader=None, batch_size=32, decode_classes_dict=None, decode_classes_list=None,
@@ -26,11 +27,13 @@ class Trainer(object):
         else:
             self.criterion = loss
 
-    def train(self, model, epoch_num=100, resume=False, valid_every=10):
+    def train(self, model, start_epoch=0, epoch_num=100, resume=False, valid_every=10):
         train_list = self.data_loader.train_data
         valid_list = self.data_loader.valid_data
-
-        for epoch in range(epoch_num):
+        best_valid = 0
+        path = ""
+        self.data_loader.shuffle_data()
+        for epoch in range(start_epoch, epoch_num):
             start_step = 0
             total_num = 0
             total_loss = 0
@@ -58,7 +61,7 @@ class Trainer(object):
                     target = target.cuda()
                 self.optimizer.zero_grad()
 
-                output = model(input, target, input_len, target_len)
+                output, top1 = model(input, target, input_len, target_len)
 
                 # target = [trg len * batch size]
                 # output = [trg len, batch size, classes len]
@@ -73,7 +76,7 @@ class Trainer(object):
                 # batch_acc_num = self.get_ans_acc(output, function_ans, batch_size, num_list)
                 batch_acc_num = 0
                 for idx in range(batch_size):
-                    if target[idx] == torch.argmax(output[idx]):
+                    if target[idx] == top1[idx]:
                         batch_acc_num += 1
                 total_acc_num += batch_acc_num
 
@@ -90,11 +93,18 @@ class Trainer(object):
                 if start_step % self.print_every == 0:
                     print("Step %d Batch Loss: %.5f  |  Epoch %d Batch Train Acc: %.2f  Acc: %d / %d" % (start_step, total_loss/total_num, epoch+1, batch_acc_num/batch_size*100, batch_acc_num, batch_size))
 
-            if (epoch+1) % valid_every == 0 and epoch > 0:
+            if (epoch+1) % valid_every == 0:
                 valid_ans_acc = self.evaluate(model, valid_list)
+                if valid_ans_acc > best_valid:
+                    best_valid = valid_ans_acc
+                    path = os.path.join('./model/', "epoch_"+str(epoch+1)+"_result"+str(best_valid)+".pth")
+                    # torch.save(model.state_dict(), path)
+                elif (epoch+1) % 10 == 0:
+                    path = os.path.join('./model/', "epoch_"+str(epoch+1)+"_result"+str(valid_ans_acc)+".pth")
+                    # torch.save(model.state_dict(), path)
                 print("Epoch %d Batch Valid Acc: %.5f  Acc: %d / %d" % (epoch+1, 100*valid_ans_acc/len(valid_list), valid_ans_acc, len(valid_list)))
-
             print("Epoch %d Batch Train Acc: %.5f  Acc: %d / %d" % (epoch + 1, total_acc_num / len(train_list)*100, total_acc_num, len(train_list)))
+        return path
 
     def evaluate(self, model, data):
         model.eval()
@@ -119,15 +129,20 @@ class Trainer(object):
                 input = input.cuda()
                 target = target.cuda()
 
-            output = model(input, target, input_len, target_len)
+            output, top1 = model(input, target, input_len, target_len)
 
             classes_len = output.shape[-1]
-            output = output[1:].view(-1, classes_len)
-            target = target[1:].contiguous().view(-1)
+            output = output.view(-1, classes_len)
+            target = target.contiguous().view(-1)
             if self.cuda_use:
                 output = output.cuda()
                 target = target.cuda()
-            total_acc_num += self.get_ans_acc(output, function_ans, batch_size, num_list)
+            batch_acc_num = 0
+            for idx in range(batch_size):
+                if target[idx] == top1[idx]:
+                    batch_acc_num += 1
+            total_acc_num += batch_acc_num
+            # total_acc_num += self.get_ans_acc(output, function_ans, batch_size, num_list)
 
             loss = self.criterion(output, target)
             epoch_loss += loss

@@ -102,9 +102,9 @@ class Seq2Seq(nn.Module):
             hidden = tuple([self._cat_directions(h) for h in hidden])
             # hidden = torch.cat([hidden[0:hidden.size(0):2], hidden[1:hidden.size(0):2]], 2)
 
-        decoder_input = target  # decoder 的第一个输入是<sos>
-        for t in range(0, target_len):
-            output, hidden = self.decoder(decoder_input[t], hidden)  # hidden = (hidden, cell)
+        decoder_input = target[0]  # decoder 的第一个输入是<sos>
+        for t in range(1, target_len):
+            output, hidden = self.decoder(decoder_input, hidden)  # hidden = (hidden, cell)
             outputs[t] = output
             teacher_forcing = random.random() < teacher_forcing_ratio
             top1 = output.argmax(1)
@@ -112,7 +112,7 @@ class Seq2Seq(nn.Module):
                 decoder_input = target[t]
             else:
                 decoder_input = top1
-        return outputs
+        return outputs, top1
 
     def _cat_directions(self, h):
         if self.encoder.bidirectional:
