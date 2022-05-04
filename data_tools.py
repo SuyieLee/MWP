@@ -173,3 +173,39 @@ def compute_prefix_expression(pre_fix):
     if len(st) == 1:
         return st.pop()
     return None
+
+def from_infix_to_prefix(expression):
+    st = list()
+    res = list()
+    priority = {"+": 0, "-": 0, "*": 1, "/": 1, "^": 2}
+    expression = copy.deepcopy(expression)
+    expression.reverse()
+    for e in expression:
+        if e in [")", "]"]:
+            st.append(e)
+        elif e == "(":
+            try:
+                c = st.pop()
+                while c != ")":
+                    res.append(c)
+                    c = st.pop()
+            except IndexError as err:
+                err=0
+        elif e == "[":
+            try:
+                c = st.pop()
+                while c != "]":
+                    res.append(c)
+                    c = st.pop()
+            except IndexError as err:
+                err=0
+        elif e in priority:
+            while len(st) > 0 and st[-1] not in [")", "]"] and priority[e] < priority[st[-1]]:
+                res.append(st.pop())
+            st.append(e)
+        else:
+            res.append(e)
+    while len(st) > 0:
+        res.append(st.pop())
+    res.reverse()
+    return res

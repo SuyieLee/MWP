@@ -103,7 +103,7 @@ class DataLoader():
             self.decode_classes_dict[elem] = idx
         self.classes_len = len(self.decode_classes_list)
         self.train_data, self.valid_data, self.test_data = split_data(self.data_23k.data_dict)
-        self.templates = read_json_data("./data/norm_templates.json")
+        # self.templates = read_json_data("./data/norm_templates.json")
 
     def shuffle_data(self):
         np.random.shuffle(self.train_data)
@@ -157,8 +157,9 @@ class DataLoader():
             # target = ['SOS_token']
             target = []
             batch_equation.append(elem[1]['target_template'])
-            target += self.templates[idx]
-            target = target[::-1]  # 翻转成前缀表达式
+            # target += self.templates[idx]
+            # target = target[::-1]  # 翻转成前缀表达式
+            target = from_infix_to_prefix(elem[1]['target_template'][2:])
             num_stack = self.get_num_stack(target, elem[1]['num_list'])
             num_stack.reverse()
             nums_stack_batch.append(num_stack)
