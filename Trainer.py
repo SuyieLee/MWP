@@ -69,12 +69,12 @@ class Trainer(object):
                 valid_acc = self.evaluate(model, valid_list)
                 if valid_acc > best_valid:
                     best_valid = valid_acc
-                    path = os.path.join('./model/', "epoch_"+str(epoch+1)+"_result"+str(best_valid)+".pth")
+                    path = os.path.join('./model/', "epoch_"+str(epoch+1)+"_result"+str(best_valid/len(valid_list)*100)+".pth")
                     torch.save(model.state_dict(), path)
                 elif (epoch+1) % 10 == 0:
-                    path = os.path.join('./model/', "epoch_"+str(epoch+1)+"_result"+str(valid_acc)+".pth")
+                    path = os.path.join('./model/', "epoch_"+str(epoch+1)+"_result"+str(valid_acc/len(valid_list)*100)+".pth")
                     torch.save(model.state_dict(), path)
-                print("Best Valid Acc: %.2f | Valid Acc: %.2f" % (best_valid ,valid_acc))
+                print("Best Valid Acc: %.2f | Valid Acc: %.2f | proportion：best %.2f | now %.2f " % (best_valid ,valid_acc, best_valid/len(valid_list)*100, valid_acc/len(valid_list)*100))
         return path
 
     def evaluate(self, model, data):
@@ -87,6 +87,7 @@ class Trainer(object):
         value_ac = 0
         equation_ac = 0
         eval_total = 0
+        count = 0
         jia_count = 0
         jian_count =0
         cheng_count = 0
@@ -105,25 +106,26 @@ class Trainer(object):
             batch_num_index_list = batch['batch_num_index_list'][0]
             nums_stack_batch = batch['nums_stack_batch'][0]
             batch_text = batch['batch_text']
-            batch_template = batch['batch_template']
+            batch_template = batch['equation']
 
             test_res = model.test(input, input_len, self.data_loader.generate_op_index, batch_num_index_list, beam_size=5, max_length=self.MAX_OUTPUT_LENGTH)
             val_ac, equ_ac, res, target_res = self.compute_prefix_tree_result(test_res, target, num_list, nums_stack_batch)
             if val_ac:
                 value_ac += 1
             else:
-                if '^' in target_res:
-                    zhi_count += 1
-                if '+' in target_res:
-                    jia_count += 1
-                if '-' in target_res:
-                    jian_count += 1
-                if '*' in target_res:
-                    cheng_count += 1
-                if '/' in target_res:
-                    chu_count += 1
-                total += 1
-                # print("count:%d\n text: %s \nequation: %s \n__target: %s \ngeneration: %s" %(count, batch_text, batch_template[0], target_res, res))
+            #     if '^' in target_res:
+            #         zhi_count += 1
+            #     if '+' in target_res:
+            #         jia_count += 1
+            #     if '-' in target_res:
+            #         jian_count += 1
+            #     if '*' in target_res:
+            #         cheng_count += 1
+            #     if '/' in target_res:
+            #         chu_count += 1
+            #     total += 1
+                count += 1
+                print("count:%d\n text: %s \nequation: %s \n__target: %s \ngeneration: %s" %(count, batch_text, batch_template[0], target_res, res))
             if equ_ac:
                 equation_ac += 1
             eval_total += 1
