@@ -39,12 +39,14 @@ class Trainer(object):
             model.train()
             print("Epoch " + str(epoch+1) + " start training!")
             for batch in self.data_loader.yield_batch(train_list, self.batch_size):
+                text = batch['batch_text']
                 input = batch['batch_encode_pad_idx']
                 input_len = batch['batch_encode_len']
                 target = batch['batch_decode_pad_idx']
                 target_len = batch['batch_decode_len']
                 function_ans = batch['batch_ans']
                 num_list = batch['batch_num_list']
+                template = batch['batch_template']
                 batch_size = len(input)
                 total_num += batch_size
 
@@ -71,7 +73,7 @@ class Trainer(object):
                     output = output.cuda()
                     target = target.cuda()
 
-                batch_acc_num = self.get_ans_acc(output, function_ans, batch_size, num_list)
+                batch_acc_num = self.get_ans_acc(text, template, output, function_ans, batch_size, num_list)
                 total_acc_num += batch_acc_num
 
                 loss = self.criterion(output, target)
@@ -103,12 +105,14 @@ class Trainer(object):
         epoch_loss = 0
         total_acc_num = 0
         for batch in self.data_loader.yield_batch(data, self.batch_size):
+            text = batch['batch_text']
             input = batch['batch_encode_pad_idx']
             input_len = batch['batch_encode_len']
             target = batch['batch_decode_pad_idx']
             target_len = batch['batch_decode_len']
             function_ans = batch['batch_ans']
             num_list = batch['batch_num_list']
+            template = batch['batch_template']
             batch_size = len(input)
 
             input = Variable(torch.LongTensor(input))
@@ -129,7 +133,7 @@ class Trainer(object):
             if self.cuda_use:
                 output = output.cuda()
                 target = target.cuda()
-            total_acc_num += self.get_ans_acc(output, function_ans, batch_size, num_list)
+            total_acc_num += self.get_ans_acc(text, template, output, function_ans, batch_size, num_list)
 
             loss = self.criterion(output, target)
             epoch_loss += loss
@@ -142,7 +146,7 @@ class Trainer(object):
 
         return total_acc_num
 
-    def get_ans_acc(self, output, function_ans, batch_size, num_list):
+    def get_ans_acc(self, text, target_template, output, function_ans, batch_size, num_list):
         acc = 0
         output = output.view(-1, batch_size, len(self.decode_classes_list))
         output = output.transpose(0, 1)
@@ -151,12 +155,20 @@ class Trainer(object):
             # print(templates)
             try:
                 equ = inverse_temp_to_num(templates, num_list[i])
+                tar = inverse_temp_to_num(target_template[i][1:], num_list[i])
                 # print(equ)
                 predict_ans = post_solver(equ)
                 if abs(float(predict_ans) - float(function_ans[i])) < 1e-5:
                     acc += 1
+                else:
+                    print(text[i])
+                    print(tar)
+                    print(equ)     
             except:
                 acc += 0
+                print(text[i])
+                print(tar)
+                print(equ)     
         return acc
 
     def get_template(self, pred):

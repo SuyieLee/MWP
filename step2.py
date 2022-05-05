@@ -4,7 +4,6 @@ import argparse
 from step1 import getArgs
 import torch
 from model import EncoderRNN, DecoderRNN, Seq2Seq
-from model import Seq2Tree
 from Trainer import Trainer
 from dataloader import DataLoader
 # from argparse import ArgumentParser
@@ -12,7 +11,7 @@ import torch.nn as nn
 
 args = getArgs()
 data_loader = DataLoader(args)
-embed_model = nn.Embedding(data_loader.vocab_len, args.embedding_size)
+embed_model = nn.Embedding(data_loader.vocab_len, 128)
 # embed_model.weight初始化是正态分布N(0,1)
 # embed_model.weight.data.copy_(torch.from_numpy(data_loader.word2vec.embedding_vec))
 encode_model = EncoderRNN(vocab_size=data_loader.vocab_len,
@@ -66,3 +65,4 @@ model.load_state_dict(torch.load(file_last))
 print("------------开始测试-------------")
 # model.load_state_dict(torch.load(path))s
 test_ans_acc = trainer.evaluate(model, data_loader.test_data)
+print("Test Acc: %.2f  Acc: %d / %d" % (100*test_ans_acc/len(data_loader.test_data), test_ans_acc, len(data_loader.test_data)))

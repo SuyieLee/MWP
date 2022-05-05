@@ -146,7 +146,7 @@ class DataLoader():
 
         batch_data_dict = {}
         batch_data_dict['batch_encode_pad_idx'] = batch_encode_pad_idx
-        # batch_data_dict['batch_text'] = batch_text
+        batch_data_dict['batch_text'] = batch_text
         batch_data_dict['batch_encode_idx'] = batch_encode_idx
         batch_data_dict['batch_encode_len'] = batch_encode_len
 
