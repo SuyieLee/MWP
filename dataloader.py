@@ -1,10 +1,13 @@
 import json
 import math
 import os
-
+from transformers import BertTokenizer, BertConfig, BertForMaskedLM, BertForNextSentencePrediction
 import numpy as np
 from gensim.models import word2vec
 from data_tools import *
+
+model_name = 'bert-base-chinese'
+MODEL_PATH = './model/bert-base-chinese/'
 
 
 class DataMath23k():
@@ -14,12 +17,33 @@ class DataMath23k():
 
 
 class Word2Vec():
-    def __init__(self, data, flag=False):
+    def __init__(self, data, flag=False, use_bert=True):
         self.data = data
-        if flag:
-            self.embedding_vec = np.load("./data/new_emb.npy")
-        else:
-            self.train_word2vec()
+        self.PAD_TOKEN = 0
+        # if flag:
+        #     self.embedding_vec = np.load("./data/new_emb.npy")
+        # else:
+        #     self.train_word2vec()
+
+    def use_bert(self, data):
+        # a. 通过词典导入分词器
+        tokenizer = BertTokenizer.from_pretrained(model_name)
+        # b. 导入配置文件
+        model_config = BertConfig.from_pretrained(model_name)
+        # 修改配置
+        model_config.output_hidden_states = True
+        model_config.output_attentions = True
+        # # 通过配置和路径导入模型
+        # bert_model = BertModel.from_pretrained(MODEL_PATH, config = model_config)
+        sentences = []
+        max_sent_len = 0
+        for k,v in self.data.data_dict.items():
+            sentence = v['text'].strip().split(' ')
+            max_sent_len = max(max_sent_len, len(sentence))
+            input_ids = [tokenizer.convert_tokens_to_ids(i) for i in sentence]  
+            # feature = self.bert_tokenizer.convert_tokens_to_ids(sentence + [self.PAD_TOKEN for _ in range(max_sent_len - len(sentence))])
+            sentences.append(input_ids)
+        return sentences
 
     def train_word2vec(self):
         """
@@ -71,17 +95,28 @@ class Word2Vec():
 
 
 class DataLoader():
-    def __init__(self, args=None):
+    def __init__(self, tokenizer, args=None):
         self.args = args
         self.data_23k = DataMath23k()
+        self.tokenizer = tokenizer
         print("---------math23k数据加载完成---------")
-        self.word2vec = Word2Vec(self.data_23k, args.train_word2vec)  # True则直接加载
-        self.vocab_list = read_json_data("./data/new_token_list.json")
-        vocab_dict = {}
-        for idx, elem in enumerate(self.vocab_list):
-            vocab_dict[elem] = idx
-        self.vocab_dict = vocab_dict
-        self.vocab_len = len(self.vocab_list)
+        # self.word2vec = Word2Vec(self.data_23k, args.train_word2vec)  # True则直接加载
+        # self.vocab_list = read_json_data("./data/new_token_list.json")
+        # vocab_dict = {}
+        # for idx, elem in enumerate(self.vocab_list):
+        #     vocab_dict[elem] = idx
+        # self.vocab_dict = vocab_dict
+        # self.vocab_len = len(self.vocab_list)
+        
+        # sentences = []
+        # max_sent_len = 0
+        # for k,v in self.data_23k.data_dict.items():
+        #     sentence = v['text'].strip().split(' ')
+        #     max_sent_len = max(max_sent_len, len(sentence))
+        #     input_ids = [tokenizer.convert_tokens_to_ids(i) for i in sentence]  
+        #     # feature = self.bert_tokenizer.convert_tokens_to_ids(sentence + [self.PAD_TOKEN for _ in range(max_sent_len - len(sentence))])
+        #     sentences.append(input_ids)
+        # self.sentences = sentences
 
         self.generate_op = ['1', '3.14']
         self.generate_op_index = [5, 6]
@@ -150,7 +185,8 @@ class DataLoader():
                     num_index_list.append(i)
             batch_num_index_list.append(num_index_list)
             batch_text.append(text)
-            text_idx = string_2_idx_sen(text.split(' '), self.vocab_dict)
+            text_idx = [self.tokenizer.convert_tokens_to_ids(i) for i in text.split(' ')]  
+            # text_idx = string_2_idx_sen(text.split(' '), self.vocab_dict)
             batch_encode_idx.append(text_idx)
             batch_encode_len.append(len(text_idx))
 
@@ -174,7 +210,7 @@ class DataLoader():
             batch_num_count.append(len(elem[1]['num_list']))
             batch_ans.append(elem[1]['ans'])
 
-        # 求这个batch里面最长的，后面做paddinh对齐
+        # 求这个batch里面最长的，后面做padding对齐
         max_encoder_len = max(batch_encode_len)
         max_decoder_len = max(batch_decode_len)
         batch_encode_pad_idx, batch_decode_pad_idx = [], []

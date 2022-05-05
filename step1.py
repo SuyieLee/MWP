@@ -1,6 +1,7 @@
 import argparse
 import os
-
+from transformers import BertModel
+from transformers import BertTokenizer, BertConfig, BertForMaskedLM, BertForNextSentencePrediction
 import torch
 from treemodel import EncoderRNN, Prediction, GenerateNode, Merge
 from Seq2Tree import Seq2Tree
@@ -11,6 +12,9 @@ import torch.nn as nn
 import random
 import numpy as np
 
+model_name = 'bert-base-chinese'
+MODEL_PATH = './model/bert-base-chinese/'
+
 
 def getArgs():
     parser = argparse.ArgumentParser()
@@ -18,7 +22,7 @@ def getArgs():
     parser.add_argument('--teacher_forcing_ratio', type=float, dest='teacher_forcing_ratio', default=0.83)
     parser.add_argument('--teacher_forcing', type=bool, dest='teacher_forcing', default=True)
     parser.add_argument('--data_name', type=str, dest='data_name', default='train_23k')
-    parser.add_argument('--hidden_size', type=int, dest='hidden_size', default=512)
+    parser.add_argument('--hidden_size', type=int, dest='hidden_size', default=768)
     # parser.add_argument('--decoder_hidden_size', type=int, dest='decoder_hidden_size', default=1024)
     parser.add_argument('--input_dropout', type=float, dest='input_dropout', default=0.5)
     parser.add_argument('--dropout', type=float, dest='dropout', default=0.5)
@@ -43,30 +47,39 @@ def getArgs():
 def step_one_train():
     if args.cuda_use:
         print("----------Using cuda----------")
-    data_loader = DataLoader(args)
-    embed_model = nn.Embedding(data_loader.vocab_len, args.embedding_size)
+        # a. 通过词典导入分词器
+    tokenizer = BertTokenizer.from_pretrained(model_name)
+    # b. 导入配置文件
+    model_config = BertConfig.from_pretrained(model_name)
+    # 修改配置
+    model_config.output_hidden_states = True
+    model_config.output_attentions = True
+    data_loader = DataLoader(tokenizer, args)
+    # embed_model = nn.Embedding(data_loader.vocab_len, args.embedding_size)
     # embed_model.weight初始化是正态分布N(0,1)
     # embed_model.weight.data.copy_(torch.from_numpy(data_loader.word2vec.embedding_vec))
-    encoder = EncoderRNN(vocab_size=data_loader.vocab_len,
-                              embed_model=embed_model,
-                              embed_size=args.embedding_size,
-                              hidden_size=args.hidden_size,
-                              input_dropout=args.input_dropout,
-                              dropout=args.dropout,
-                              layers=int(args.layers),
-                              bidirectional=args.bidirectional)
+    # encoder = EncoderRNN(vocab_size=data_loader.vocab_len,
+    #                           embed_model=embed_model,
+    #                           embed_size=args.embedding_size,
+    #                           hidden_size=args.hidden_size,
+    #                           input_dropout=args.input_dropout,
+    #                           dropout=args.dropout,
+    #                           layers=int(args.layers),
+    #                           bidirectional=args.bidirectional)
+
+    bert_model = BertModel.from_pretrained(MODEL_PATH, config=model_config)
 
     predict = Prediction(args.hidden_size, op_nums=5, input_size=len(data_loader.generate_op))
     generate = GenerateNode(args.hidden_size, op_nums=5, embedding_size=args.embedding_size)
     merge = Merge(args.hidden_size, args.embedding_size)
 
     if args.cuda_use:
-        encoder.cuda()
+        bert_model.cuda()
         predict.cuda()
         generate.cuda()
         merge.cuda()
 
-    model = Seq2Tree(data_loader, encoder, predict, generate, merge, args.learning_rate, args.weight_decay, args.cuda_use)
+    model = Seq2Tree(data_loader, bert_model, predict, generate, merge, args.learning_rate, args.weight_decay, args.cuda_use)
 
     if args.cuda_use:
         model = model.cuda()
@@ -79,8 +92,6 @@ def step_one_train():
     trainer = Trainer(model,
                       # loss=loss,
                       weight=weight,
-                      vocab_dict=data_loader.vocab_dict,
-                      vocab_list=data_loader.vocab_list,
                       data_loader=data_loader,
                       batch_size=args.batch_size,
                       decode_classes_dict=data_loader.decode_classes_dict,

@@ -4,14 +4,14 @@ from treemodel import *
 
 
 class Seq2Tree(nn.Module):
-    def __init__(self, data_loader, encoder, prediction, generation, merge, learning_rate, weight_decay, cuda_use):
+    def __init__(self, data_loader, bert_model, prediction, generation, merge, learning_rate, weight_decay, cuda_use):
         super().__init__()
         self.data_loader = data_loader
-        self.encoder = encoder
+        self.encoder = bert_model
         self.prediction = prediction
         self.generation = generation
         self.merge = merge
-        self.encoder_optimizer = torch.optim.Adam(encoder.parameters(), lr=learning_rate, weight_decay=weight_decay)
+        self.encoder_optimizer = torch.optim.Adam(self.encoder.parameters(), lr=learning_rate, weight_decay=weight_decay)
         self.prediction_optimizer = torch.optim.Adam(prediction.parameters(), lr=learning_rate,
                                                      weight_decay=weight_decay)
         self.generation_optimizer = torch.optim.Adam(generation.parameters(), lr=learning_rate,
@@ -38,7 +38,7 @@ class Seq2Tree(nn.Module):
         num_mask = torch.ByteTensor(num_mask)
         batch_size = len(input_len)
 
-        input = torch.LongTensor(input).transpose(0, 1)
+        input = torch.LongTensor(input)
         target = torch.LongTensor(target).transpose(0, 1)
 
         unk = self.data_loader.decode_classes_dict['UNK_token']
@@ -62,13 +62,15 @@ class Seq2Tree(nn.Module):
         self.generation_optimizer.zero_grad()
         self.merge_optimizer.zero_grad()
 
-        encoder_outputs, problem_output = self.encoder(input, input_len)
+        # encoder_outputs, problem_output = self.encoder(input)
+        output = self.encoder(input)
+        encoder_outputs = output['last_hidden_state'].transpose(0, 1)
+        problem_output = output['pooler_output']
         node_stacks = [[TreeNode(_)] for _ in problem_output.split(1, dim=0)]  # 生成根节点
         
         copy_num_len = [len(_) for _ in num_pos]  # 数字列表的长度
         num_size = max(copy_num_len)  # 数字列表最大长度
-        all_nums_encoder_outputs = self.get_all_number_encoder_outputs(encoder_outputs, num_pos, batch_size, num_size,
-                                                                       self.encoder.hidden_size)
+        all_nums_encoder_outputs = self.get_all_number_encoder_outputs(encoder_outputs, num_pos, batch_size, num_size, 768)
 
         all_node_outputs = []
         embeddings_stacks = [[] for _ in range(batch_size)]
@@ -157,16 +159,17 @@ class Seq2Tree(nn.Module):
             num_mask = num_mask.cuda()
         # Run words through encoder
 
-        encoder_outputs, problem_output = self.encoder(input_var, [input_len])
+        output = self.encoder(input_var)
+        encoder_outputs = output['last_hidden_state'].transpose(0, 1)
+        problem_output = output['pooler_output']
 
         # Prepare input and output variables
         node_stacks = [[TreeNode(_)] for _ in problem_output.split(1, dim=0)]
 
         num_size = len(num_pos)
-        all_nums_encoder_outputs = self.get_all_number_encoder_outputs(encoder_outputs, [num_pos], batch_size, num_size,
-                                                                  self.encoder.hidden_size)
+        all_nums_encoder_outputs = self.get_all_number_encoder_outputs(encoder_outputs, [num_pos], batch_size, num_size, 768)
         num_start = 5
-        # B x P x N
+        # B x P x Nß
         embeddings_stacks = [[] for _ in range(batch_size)]
         left_childs = [None for _ in range(batch_size)]
 

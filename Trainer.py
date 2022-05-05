@@ -10,11 +10,9 @@ import copy
 
 
 class Trainer(object):
-    def __init__(self, model, loss=None, weight=None, vocab_dict=None, vocab_list=None, data_loader=None, batch_size=32, decode_classes_dict=None, decode_classes_list=None,
+    def __init__(self, model, loss=None, weight=None, data_loader=None, batch_size=32, decode_classes_dict=None, decode_classes_list=None,
                  cuda_use=True, print_every=10, checkpoint_dir_name=None):
         self.model = model
-        self.vocab_dict = vocab_dict
-        self.vocab_list = vocab_list
         self.data_loader = data_loader
         self.decode_classes_dict = decode_classes_dict
         self.decode_classes_list = decode_classes_list
