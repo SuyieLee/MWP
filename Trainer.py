@@ -1,3 +1,4 @@
+import os
 import torch.optim as optim
 from torch.nn import Dropout
 from torch.autograd import Variable
@@ -28,6 +29,7 @@ class Trainer(object):
     def train(self, model, epoch_num=100, resume=False, valid_every=10):
         train_list = self.data_loader.train_data
         valid_list = self.data_loader.valid_data
+        best_valid = 0
 
         for epoch in range(epoch_num):
             start_step = 0
@@ -87,6 +89,11 @@ class Trainer(object):
 
             if (epoch+1) % valid_every == 0 and epoch > 0:
                 valid_ans_acc = self.evaluate(model, valid_list)
+                if valid_ans_acc > best_valid:
+                    best_valid = valid_ans_acc
+                    path = os.path.join('./model/', "epoch_"+str(epoch+1)+"_result"+str(best_valid)+".pth")
+                    torch.save(model.state_dict(), path)
+                    torch.save(model, './model/epoch')
                 print("Epoch %d Batch Valid Acc: %.5f  Acc: %d / %d" % (epoch+1, 100*valid_ans_acc/len(valid_list), valid_ans_acc, len(valid_list)))
 
             print("Epoch %d Batch Train Acc: %.5f  Acc: %d / %d" % (epoch + 1, total_acc_num / len(train_list)*100, total_acc_num, len(train_list)))

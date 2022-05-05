@@ -12,21 +12,26 @@ def split_data(data):
     :param data:
     :return:
     """
-    t_path = "./data/id_ans_test"
-    v_path = "./data/valid_ids.json"
-    valid_id = read_json_data(v_path)
-    test_id = []
-    with open(t_path, 'r') as f:
-        for line in f:
-            test_id.append(line.strip().split('\t')[0])
+    # t_path = "./data/id_ans_test"
+    # v_path = "./data/valid_ids.json"
+    # valid_id = read_json_data(v_path)
+    # test_id = []
+    # with open(t_path, 'r') as f:
+    #     for line in f:
+    #         test_id.append(line.strip().split('\t')[0])
     train, test, valid = [], [], []
+    fold_size1 = int(len(data) * 0.8)
+    fold_size2 = int(len(data) * 0.9)
+    # valid = data[fold_size1:fold_size2]
+    # test = data[fold_size2:]
+    # train = data[:fold_size1]
     for key, value in data.items():
-        if key in test_id:
-            test.append((key, value))
-        elif key in valid_id:
+        if int(key) <= fold_size1:
+            train.append((key, value))
+        elif int(key) <= fold_size2:
             valid.append((key, value))
         else:
-            train.append((key, value))
+            test.append((key, value))
     return train, valid, test
 
 

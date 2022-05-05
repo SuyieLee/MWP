@@ -35,7 +35,8 @@ class Word2Vec():
                 new_data[elem] = new_data.get(elem, 0) + 1
                 # new_data.get(elem, 0)字典key不存在时返回默认值0
 
-        model = word2vec.Word2Vec(sentences, vector_size=128, min_count=1) # 训练
+        # model = word2vec.Word2Vec(sentences, vector_size=128, min_count=1)  # 本地训练
+        model = word2vec.Word2Vec(sentences, size=128, min_count=1)  # 服务器
         token = ['PAD_token', 'SOS_token', 'END_token', 'UNK_token']
         emb_vectors = []
 
@@ -73,7 +74,7 @@ class DataLoader():
         self.args = args
         self.data_23k = DataMath23k()
         print("---------math23k数据加载完成---------")
-        self.word2vec = Word2Vec(self.data_23k, True) # True则直接加载
+        self.word2vec = Word2Vec(self.data_23k, False) # True则直接加载
         self.vocab_list = read_json_data("./data/new_token_list.json")
         vocab_dict = {}
         for idx, elem in enumerate(self.vocab_list):
